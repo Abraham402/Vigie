@@ -38,13 +38,13 @@ def configured() -> bool:
     return bool(os.environ.get("TELEGRAM_BOT_TOKEN") and (_chat or os.environ.get("TELEGRAM_CHAT_ID")))
 
 
-def send(text: str) -> bool:
+def send(text: str, silent: bool = False) -> bool:
     if not configured():
         return False
     try:
         r = requests.post(f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage", timeout=20,
                           json={"chat_id": _chat or os.environ["TELEGRAM_CHAT_ID"], "text": text, "parse_mode": "HTML",
-                                "disable_web_page_preview": True})
+                                "disable_web_page_preview": True, "disable_notification": silent})
         if not r.ok:
             log.warning("Telegram : %s %s", r.status_code, r.text[:200])
         return r.ok

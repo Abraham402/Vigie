@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from . import extras, llm, market, model, news, telegram, translate
+from . import extras, llm, market, model, news, portfolio, telegram, translate
 from . import features as F
 from .util import OUT_DIR, STATE_DIR, load_people, load_settings, log, now_ms, read_json, setup_logging, write_json
 
@@ -292,7 +292,13 @@ def run() -> None:
     for k in [k for k, v in sent.items() if now - v > 7 * 86400 * 1000]:
         sent.pop(k)
 
-    # 7. résumé du matin
+    # 7. point sur le portefeuille fictif (si demandé depuis l'application)
+    try:
+        portfolio.maybe_send(state, mds, proba)
+    except Exception as e:
+        log.warning("point portefeuille : %s", e)
+
+    # 7 bis. résumé du matin
     summary = state.get("summary")
     paris = dt.datetime.now(PARIS)
     today = paris.date().isoformat()

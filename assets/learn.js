@@ -336,7 +336,7 @@ function learnInit() {
   $("#learnNav").onclick = () => go("learn");
   $("#learnTour").onclick = () => tour(0);
   installQt();
-  setSugg(["Explique le signal sur " + current, "C'est quoi le RSI ?", "Fais-moi un quiz", "Commente mon portefeuille", "Résume l'actualité", "Comment placer un stop-loss ?"]);
+  setSugg(["Explique le signal sur " + current, "C'est quoi le RSI ?", "Fais-moi un quiz", "Commente mon portefeuille", "Résume l'actualité", "Envoie-moi un point sur mon portefeuille toutes les heures sur Telegram", "Comment placer un stop-loss ?"]);
   if (!ST.seen) setTimeout(welcome, 700);
 }
 on("ready", learnInit);

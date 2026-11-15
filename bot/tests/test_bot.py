@@ -138,3 +138,17 @@ def test_insider_roles_in_french():
     assert role_fr("Chief Financial Officer") == "Directeur financier"
     assert role_fr("Officer and Director") == "Administrateur"
     assert role_fr("Director") == "Administrateur"
+
+
+def test_portfolio_report():
+    import datetime as dt
+    from vigie import portfolio
+    snap = portfolio.parse('📌 Copie\n#VIGIE {"v":1,"freq":60,"cap":10000,"cash":5000,"pos":{"BTC":[0.05,3000,0,0],"NVDA":[10,2000,150,0]}}')
+    assert snap and snap["freq"] == 60
+    txt, mem = portfolio.build_report(snap, {"BTC": 59400, "NVDA": 153}, {"BTC": [[50, .5], [44, .6], [46, .6]]}, None,
+                                      dt.datetime(2026, 11, 16, 15, 0))
+    assert "BTC" in txt and "−1,00 %" in txt and "sans stop-loss" in txt and "moins de 2 %" in txt
+    assert abs(mem["total"] - (5000 + 0.05 * 59400 + 10 * 153)) < 1e-6
+    txt2, _ = portfolio.build_report(snap, {"BTC": 60000, "NVDA": 153}, {}, mem, dt.datetime(2026, 11, 16, 16, 0))
+    assert "Depuis le dernier point" in txt2
+    assert portfolio.parse("rien") is None

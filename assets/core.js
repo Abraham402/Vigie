@@ -666,12 +666,13 @@ function openSettings() {
   <h3 class="mt">Telegram pour vos alertes de prix (facultatif)</h3>
   <label class="fld">Jeton du bot (donné par BotFather)<input class="input" id="sTgT" type="password" autocomplete="off" value="${esc(CFG.tgToken)}"></label>
   <label class="fld">Votre identifiant de discussion (chat id)<input class="input" id="sTgC" inputmode="numeric" value="${esc(CFG.tgChat)}"></label>
+  <label class="fld">Suivi de mon portefeuille sur Telegram<select class="input" id="sRep">${[[0, "Désactivé"], [60, "Toutes les heures"], [120, "Toutes les 2 heures"], [240, "Toutes les 4 heures"], [720, "Matin et soir"]].map(([v, l]) => `<option value="${v}" ${(CFG.tgReport || 0) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
   <div class="btn-row"><button class="btn ai-b" id="sSave">Enregistrer</button><button class="btn" id="sFind">Trouver mon chat id</button><button class="btn" id="sTest">Tester Telegram</button><button class="btn" id="sNotif">Activer les notifications</button></div>
   <h3 class="mt">Sauvegarde</h3>
   <p class="kicker">Portefeuille, alertes et progression sont stockés dans ce navigateur. Exportez-les pour les garder ou les transférer.</p>
   <div class="btn-row"><button class="btn" id="sExp">Exporter</button><label class="btn" style="cursor:pointer">Importer<input type="file" id="sImp" accept="application/json" hidden></label></div>
   </div>`);
-  $("#sSave").onclick = () => { CFG.gemini = $("#sGem").value.trim(); CFG.geminiModel = $("#sGemM").value.trim() || "gemini-flash-latest"; CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); saveCfg(); aiHist = []; toast("Réglages enregistrés"); renderAiHead() };
+  $("#sSave").onclick = () => { CFG.gemini = $("#sGem").value.trim(); CFG.geminiModel = $("#sGemM").value.trim() || "gemini-flash-latest"; CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); const rep = +$("#sRep").value; const repCh = rep !== (CFG.tgReport || 0); CFG.tgReport = rep; saveCfg(); aiHist = []; toast("Réglages enregistrés"); renderAiHead(); if (repCh || rep) syncPfToBot(true) };
   $("#sTest").onclick = async () => {
     CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim();
     if (!CFG.tgToken) return toast("Collez le jeton du bot");
@@ -761,3 +762,52 @@ async function startApp(data) {
   setInterval(renderStatus, 30000);
   emit("ready");
 }
+
+
+/* =====================================================================
+   SUIVI DU PORTEFEUILLE SUR TELEGRAM
+   L'application dépose une copie de votre portefeuille dans un message
+   épinglé (silencieux) de votre discussion avec le bot. Le bot GitHub le
+   lit et vous envoie un point au rythme choisi, même application fermée.
+   ===================================================================== */
+async function tgCall(method, params) {
+  const u = `https://api.telegram.org/bot${CFG.tgToken}/${method}?` + new URLSearchParams(params);
+  const r = await fetch(u); return r.json();
+}
+function pfSnapshot() {
+  const pos = {}; for (const s in pf.pos) { const p = pf.pos[s]; pos[s] = [+p.q.toPrecision(8), +p.cost.toFixed(2), p.sl ? +p.sl.toPrecision(8) : 0, p.tp ? +p.tp.toPrecision(8) : 0] }
+  return { v: 1, t: Date.now(), freq: CFG.tgReport || 0, cap: pf.cap, cash: +pf.cash.toFixed(2), pos };
+}
+let syncTimer = null;
+async function syncPfToBot(now) {
+  if (D.mode !== "live" || !CFG.tgToken || !CFG.tgChat) return false;
+  if (!now) { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncPfToBot(true), 4000); return }
+  const text = "📌 Copie de votre portefeuille Vigie pour le bot (ne pas supprimer, mise à jour automatique)\n#VIGIE " + JSON.stringify(pfSnapshot());
+  try {
+    if (CFG.tgSyncId) { const r = await tgCall("editMessageText", { chat_id: CFG.tgChat, message_id: CFG.tgSyncId, text }); if (r.ok || /not modified/i.test(r.description || "")) return true }
+    const r = await tgCall("sendMessage", { chat_id: CFG.tgChat, text, disable_notification: true });
+    if (!r.ok) return false;
+    CFG.tgSyncId = r.result.message_id; saveCfg();
+    await tgCall("pinChatMessage", { chat_id: CFG.tgChat, message_id: CFG.tgSyncId, disable_notification: true });
+    return true;
+  } catch (e) { console.warn("synchronisation Telegram", e); return false }
+}
+on("trade", () => { if (CFG.tgReport) syncPfToBot() });
+on("ready", () => { if (CFG.tgReport) syncPfToBot() });
+/* l'IA comprend les demandes de suivi : « envoie-moi un point toutes les heures sur Telegram » */
+aiHooks.push(q => {
+  const t = q.toLowerCase();
+  if (!/telegram|notif|suivi|point|message|tiens[- ]moi|informe/.test(t) || !/heure|matin|soir|chaque|tous les|toutes les|arr[eê]t|stop|plus de|désactiv|suivi/.test(t)) return null;
+  if (!/portef|invest|position|bitcoin|btc|wallet|suivi|point|avancée|évolution|gains?|pertes?/.test(t)) return null;
+  let f = null;
+  if (/arr[eê]t|stop|plus de|désactiv|coupe/.test(t)) f = 0;
+  else if (/matin et soir|2 fois par jour|deux fois par jour/.test(t)) f = 720;
+  else { const m = t.match(/(\d+)\s*h|(\d+)\s*heure/); f = m ? Math.min(720, Math.max(60, +(m[1] || m[2]) * 60)) : 60 }
+  if (D.mode !== "live") return `<p>Le suivi sur Telegram fonctionne avec les données réelles. Quittez la démo (⚙️ → « passer au réel ») puis redemandez-moi.</p>`;
+  if (!CFG.tgToken || !CFG.tgChat) return `<p>Pour vous envoyer le suivi, j'ai besoin de Telegram : ⚙️ → collez le jeton du bot → « Trouver mon chat id » → « Enregistrer ». Puis redemandez-moi.</p>`;
+  CFG.tgReport = f; saveCfg();
+  syncPfToBot(true).then(ok => toast(ok ? "Portefeuille transmis au bot ✓" : "Transmission au bot impossible : vérifiez Telegram dans ⚙️"));
+  if (!f) return `<p>C'est noté : j'arrête les points sur le portefeuille dans Telegram. Les signaux et le résumé du matin continuent.</p>`;
+  const lbl = f === 60 ? "toutes les heures" : f === 720 ? "matin et soir" : `toutes les ${f / 60} heures`;
+  return `<p>C'est noté ✅ Je vous envoie un point sur votre portefeuille <b>${lbl}</b> dans votre discussion avec le bot Telegram : valeur totale, gain ou perte de chaque position depuis l'achat et depuis le dernier point, protections manquantes et avis du bot.</p><p class="muted">Le premier point arrive au prochain passage du bot (15 min maximum). La nuit (23 h – 7 h), les messages sont silencieux. Pour arrêter, dites-moi « arrête le suivi ».</p>`;
+});
