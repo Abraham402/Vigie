@@ -17,19 +17,37 @@ def available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY"))
 
 
+_no_thinking_ok = True
+
+
+def _gemini(key: str, prompt: str, max_tokens: int, temperature: float) -> str | None:
+    """Appel Gemini sans « réflexion » (plus rapide) ; repli automatique si le modèle refuse l'option."""
+    global _no_thinking_ok
+    for attempt in range(2):
+        cfg = {"temperature": temperature, "maxOutputTokens": max_tokens}
+        if _no_thinking_ok:
+            cfg["thinkingConfig"] = {"thinkingBudget": 0}
+        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+                          params={"key": key}, timeout=90,
+                          json={"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": cfg})
+        if r.ok:
+            parts = r.json()["candidates"][0]["content"].get("parts", [])
+            return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        if r.status_code == 400 and _no_thinking_ok:
+            _no_thinking_ok = False
+            continue
+        log.warning("Gemini : %s %s", r.status_code, r.text[:200])
+        return None
+    return None
+
+
 def ask(prompt: str, max_tokens: int = 1500, temperature: float = 0.4) -> str | None:
     key = os.environ.get("GEMINI_API_KEY")
     if key:
         try:
-            r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-                params={"key": key}, timeout=60,
-                json={"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                      "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens}})
-            if r.ok:
-                parts = r.json()["candidates"][0]["content"]["parts"]
-                return "".join(p.get("text", "") for p in parts)
-            log.warning("Gemini : %s %s", r.status_code, r.text[:200])
+            out = _gemini(key, prompt, max_tokens, temperature)
+            if out:
+                return out
         except Exception as e:
             log.warning("Gemini : %s", e)
     key = os.environ.get("GROQ_API_KEY")
@@ -63,7 +81,7 @@ def enrich_news(items: list[dict], proba: dict) -> None:
     """Traduit les titres en français et ajoute un résumé d'une phrase (en un seul appel)."""
     if not items or not available():
         return
-    payload = [{"i": k, "titre": it["txt"], "extrait": it.get("summary", "")[:250], "actif": it.get("asset"),
+    payload = [{"i": k, "titre": it.get("txt_en") or it["txt"], "extrait": it.get("summary", "")[:250], "actif": it.get("asset"),
                 "proba_hausse_24h": proba.get(it.get("asset"), [None, [None]])[1][0] if it.get("asset") in proba else None}
                for k, it in enumerate(items)]
     prompt = ("Tu es analyste financier pour un débutant francophone. Pour chaque actualité ci-dessous, donne :\n"
@@ -77,9 +95,10 @@ def enrich_news(items: list[dict], proba: dict) -> None:
         try:
             it = items[int(r["i"])]
             if r.get("fr"):
-                it["txt_en"] = it["txt"]
+                it.setdefault("txt_en", it["txt"])
                 it["txt"] = str(r["fr"])[:300]
             if r.get("ai"):
                 it["ai"] = str(r["ai"])[:300]
+                it["llm"] = True
         except Exception:
             continue

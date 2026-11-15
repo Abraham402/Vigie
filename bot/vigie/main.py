@@ -211,22 +211,21 @@ def run() -> None:
 
     # 4. enrichissement des actualités (traduction + résumé IA), avec cache
     cache = state.setdefault("news_cache", {})
-    fresh = [it for it in items[:60] if it["id"] not in cache]
-    if fresh and llm.available():
-        llm.enrich_news(fresh[:20], proba)
-    todo = [it for it in fresh[:25] if not it.get("txt_en")]
-    if todo:  # sans IA (ou en complément) : traduction gratuite des titres
-        for it, fr_txt in zip(todo, translate.free_translate([it["txt"] for it in todo])):
-            if fr_txt and fr_txt.strip().lower() != it["txt"].strip().lower():
-                it["txt_en"], it["txt"] = it["txt"], fr_txt
-        for it in todo:
-            if it.get("txt_en") and it["id"] not in cache:
-                cache[it["id"]] = {k: it[k] for k in ("txt", "ai", "txt_en") if k in it}
     for it in items:
         if it["id"] in cache:
             it.update(cache[it["id"]])
-        elif it.get("ai") or it.get("txt_en"):
-            cache[it["id"]] = {k: it[k] for k in ("txt", "ai", "txt_en") if k in it}
+    if llm.available():  # résumés IA : 3 lots de 6 articles maximum par passage
+        todo = [it for it in items[:60] if not it.get("llm")][:18]
+        for k in range(0, len(todo), 6):
+            llm.enrich_news(todo[k:k + 6], proba)
+    todo = [it for it in items[:60] if not it.get("txt_en")][:25]
+    if todo:  # titres encore en anglais : traduction gratuite
+        for it, fr_txt in zip(todo, translate.free_translate([it["txt"] for it in todo])):
+            if fr_txt and fr_txt.strip().lower() != it["txt"].strip().lower():
+                it["txt_en"], it["txt"] = it["txt"], fr_txt
+    for it in items:
+        if it.get("txt_en") or it.get("llm"):
+            cache[it["id"]] = {k: it[k] for k in ("txt", "ai", "txt_en", "llm") if k in it}
         a = it.get("asset")
         it["p"] = proba[a][1][0] if a in proba else None
         if not it.get("ai") and a and a in proba:
