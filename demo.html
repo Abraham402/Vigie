@@ -93,6 +93,8 @@ h3{font-size:13px;font-weight:600;margin:0;color:var(--muted)}
 .stats{display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .stats b{color:var(--text);font-weight:500;margin-left:4px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px}
+.toolbar .segmented{overflow-x:auto;max-width:100%}
+.toolbar .segmented button{padding:5px 9px}
 .toggle{border:1px solid var(--line);background:none;border-radius:8px;padding:5px 10px;font-size:12px;color:var(--muted)}
 .toggle[aria-pressed=true]{border-color:var(--line-2);background:var(--panel-2);color:var(--text)}
 #chart{height:380px;margin:0 -6px}
@@ -273,12 +275,16 @@ td.r,th.r{text-align:right;white-space:nowrap}
       </div>
       <div class="toolbar">
         <div class="segmented" role="group" aria-label="Unité de temps">
-          <button aria-pressed="false" data-tf="3600">1 h</button><button aria-pressed="true" data-tf="14400">4 h</button><button aria-pressed="false" data-tf="86400">1 J</button>
+          <button aria-pressed="true" data-tf="1">1 s</button><button aria-pressed="false" data-tf="60">1 min</button><button aria-pressed="false" data-tf="300">5 min</button><button aria-pressed="false" data-tf="900">15 min</button><button aria-pressed="false" data-tf="3600">1 h</button><button aria-pressed="false" data-tf="14400">4 h</button><button aria-pressed="false" data-tf="86400">1 J</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Style de la courbe">
+          <button aria-pressed="true" data-st="candles" title="Bougies japonaises">Bougies</button><button aria-pressed="false" data-st="ha" title="Bougies lissées Heikin Ashi : tendance plus lisible">Heikin Ashi</button><button aria-pressed="false" data-st="bars" title="Barres OHLC">Barres</button><button aria-pressed="false" data-st="line">Ligne</button><button aria-pressed="false" data-st="area">Aire</button>
         </div>
         <button class="toggle" aria-pressed="true" data-ind="ema">EMA 20/50</button>
         <button class="toggle" aria-pressed="false" data-ind="bb">Bollinger</button>
         <button class="toggle" aria-pressed="true" data-ind="rsi">RSI</button>
         <button class="toggle" aria-pressed="true" data-ind="sig">Signaux du bot</button>
+        <span class="chip up" style="align-self:center"><span class="pulse" style="width:6px;height:6px"></span>En direct</span>
       </div>
       <div id="chart"></div>
       <div class="legend"><span><i style="background:#F5B83D"></i>EMA 20</span><span><i style="background:#9B8AFB"></i>EMA 50</span><span><i style="background:#16C784"></i>▲ signal haussier du bot</span><span><i style="background:#EA3943"></i>▼ signal baissier du bot</span></div>
@@ -454,10 +460,10 @@ $$("[data-wf]").forEach(b=>b.onclick=()=>{wFilter=b.dataset.wf;$$("[data-wf]").f
 
 /* ================= graphique ================= */
 const LC=window.LightweightCharts;
-let chart,candle,vol,ema20,ema50,bbU,bbL,rsiS,markers,tf=14400,bars=[];
+let chart,candle,vol,ema20,ema50,bbU,bbL,rsiS,markers,tf=1,bars=[],style="candles";
 const show={ema:true,bb:false,rsi:true,sig:true};
 function genBars(a,tf){
-  const r=rng(hash(a.s+tf)),n=220,step=tf,vol=a.v*Math.sqrt(tf/86400)*1.3;
+  const r=rng(hash(a.s+tf)),n=240,step=tf,vol=a.v*Math.sqrt(tf/86400)*(tf<3600?2.5:1.3);
   let x=1,arr=[];for(let i=0;i<n;i++){x*=Math.exp(gauss(r)*vol+Math.sin(i/23)*vol*.12);arr.push(x)}
   const k=a.price/arr[n-1],now=Math.floor(Date.now()/1000/step)*step;let prev=arr[0]*k*(1-gauss(r)*vol*.3);
   return arr.map((c,i)=>{c*=k;const o=prev;prev=c;const hi=Math.max(o,c)*(1+Math.abs(gauss(r))*vol*.45),lo=Math.min(o,c)*(1-Math.abs(gauss(r))*vol*.45);return{time:now-(n-1-i)*step,open:o,high:hi,low:lo,close:c,value:(.4+r()*1.2)*(1+Math.abs(c/o-1)*40)}})
@@ -471,14 +477,27 @@ function initChart(){
   chart=LC.createChart($("#chart"),{autoSize:true,layout:{background:{type:"solid",color:"transparent"},textColor:"#8492A8",fontFamily:"IBM Plex Sans, system-ui",fontSize:11,panes:{separatorColor:"#1E2B44"},attributionLogo:false},
     grid:{vertLines:{color:"rgba(30,43,68,.55)"},horzLines:{color:"rgba(30,43,68,.55)"}},rightPriceScale:{borderColor:"#1E2B44"},timeScale:{borderColor:"#1E2B44",timeVisible:true,rightOffset:4},crosshair:{mode:0},
     localization:{locale:"fr-FR",priceFormatter:p=>fp(p)}});
-  candle=chart.addSeries(LC.CandlestickSeries,{upColor:"#16C784",downColor:"#EA3943",borderVisible:false,wickUpColor:"#16C784",wickDownColor:"#EA3943"});
   vol=chart.addSeries(LC.HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:"",lastValueVisible:false,priceLineVisible:false});
   vol.priceScale().applyOptions({scaleMargins:{top:.82,bottom:0}});
   const lo={lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false};
   ema20=chart.addSeries(LC.LineSeries,{...lo,color:"#F5B83D"});ema50=chart.addSeries(LC.LineSeries,{...lo,color:"#9B8AFB"});
   bbU=chart.addSeries(LC.LineSeries,{...lo,lineWidth:1,color:"rgba(132,146,168,.6)",lineStyle:2});bbL=chart.addSeries(LC.LineSeries,{...lo,lineWidth:1,color:"rgba(132,146,168,.6)",lineStyle:2});
-  markers=LC.createSeriesMarkers(candle,[]);
-  loadChart();
+  style=LS.get("vigie-style","candles");$$("[data-st]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.st===style));
+  createMain();loadChart();
+}
+const CS={upColor:"#16C784",downColor:"#EA3943",borderVisible:false,wickUpColor:"#16C784",wickDownColor:"#EA3943"};
+const STYLES={candles:()=>[LC.CandlestickSeries,CS],ha:()=>[LC.CandlestickSeries,CS],bars:()=>[LC.BarSeries,{upColor:"#16C784",downColor:"#EA3943",thinBars:false}],line:()=>[LC.LineSeries,{color:"#E6ECF5",lineWidth:2}],area:()=>[LC.AreaSeries,{lineColor:"#16C784",topColor:"rgba(22,199,132,.28)",bottomColor:"rgba(22,199,132,0)",lineWidth:2}]};
+function createMain(){if(candle)chart.removeSeries(candle);const[T,o]=STYLES[style]();candle=chart.addSeries(T,o,0);markers=LC.createSeriesMarkers(candle,[])}
+function haCalc(d){const out=[];let po,pc;d.forEach((b,i)=>{const c=(b.open+b.high+b.low+b.close)/4,o=i?(po+pc)/2:(b.open+b.close)/2;out.push({time:b.time,open:o,high:Math.max(b.high,o,c),low:Math.min(b.low,o,c),close:c});po=o;pc=c});return out}
+function seriesData(){if(style==="line"||style==="area")return bars.map(b=>({time:b.time,value:b.close}));if(style==="ha")return haCalc(bars);return bars.map(({time,open,high,low,close})=>({time,open,high,low,close}))}
+function lastPoint(){const b=bars[bars.length-1];if(style==="line"||style==="area")return{time:b.time,value:b.close};if(style==="ha")return haCalc(bars.slice(-120)).pop();return{time:b.time,open:b.open,high:b.high,low:b.low,close:b.close}}
+function refreshIndicators(){ema20.setData(show.ema?emaCalc(bars,20):[]);ema50.setData(show.ema?emaCalc(bars,50):[]);const[u,l]=bbCalc(bars);bbU.setData(show.bb?u:[]);bbL.setData(show.bb?l:[]);if(rsiS)rsiS.setData(rsiCalc(bars))}
+function liveBar(price){
+  const now=Math.floor(Date.now()/1000),bt=Math.floor(now/tf)*tf;let b=bars[bars.length-1],isNew=false;
+  if(bt>b.time){b={time:bt,open:b.close,high:b.close,low:b.close,close:b.close,value:.25};bars.push(b);isNew=true}
+  b.close=price;b.high=Math.max(b.high,price);b.low=Math.min(b.low,price);b.value+=Math.random()*.12;
+  candle.update(lastPoint());vol.update({time:b.time,value:b.value,color:b.close>=b.open?"rgba(22,199,132,.35)":"rgba(234,57,67,.35)"});
+  if(isNew)refreshIndicators();
 }
 function ensureRsi(){
   if(show.rsi&&!rsiS){rsiS=chart.addSeries(LC.LineSeries,{color:"#9B8AFB",lineWidth:1.5,priceLineVisible:false,lastValueVisible:true},1);rsiS.createPriceLine({price:70,color:"rgba(234,57,67,.5)",lineStyle:2,lineWidth:1,axisLabelVisible:false});rsiS.createPriceLine({price:30,color:"rgba(22,199,132,.5)",lineStyle:2,lineWidth:1,axisLabelVisible:false})}
@@ -486,7 +505,8 @@ function ensureRsi(){
 }
 function loadChart(){
   if(!chart)return;const a=BY[current];bars=genBars(a,tf);
-  candle.setData(bars.map(({time,open,high,low,close})=>({time,open,high,low,close})));
+  chart.applyOptions({timeScale:{timeVisible:tf<86400,secondsVisible:tf<60}});
+  candle.setData(seriesData());
   vol.setData(bars.map(b=>({time:b.time,value:b.value,color:b.close>=b.open?"rgba(22,199,132,.35)":"rgba(234,57,67,.35)"})));
   ema20.setData(show.ema?emaCalc(bars,20):[]);ema50.setData(show.ema?emaCalc(bars,50):[]);
   const[u,l]=bbCalc(bars);bbU.setData(show.bb?u:[]);bbL.setData(show.bb?l:[]);
@@ -494,6 +514,7 @@ function loadChart(){
   markers.setMarkers(show.sig?sigMarkers(bars):[]);
   chart.timeScale().setVisibleLogicalRange({from:bars.length-(innerWidth<600?70:120),to:bars.length+3});
 }
+$$("[data-st]").forEach(b=>b.onclick=()=>{style=b.dataset.st;LS.set("vigie-style",style);$$("[data-st]").forEach(x=>x.setAttribute("aria-pressed",x===b));createMain();loadChart()});
 $$("[data-tf]").forEach(b=>b.onclick=()=>{tf=+b.dataset.tf;$$("[data-tf]").forEach(x=>x.setAttribute("aria-pressed",x===b));loadChart()});
 $$("[data-ind]").forEach(b=>b.onclick=()=>{const k=b.dataset.ind;show[k]=!show[k];b.setAttribute("aria-pressed",show[k]);loadChart()});
 
@@ -620,10 +641,13 @@ $("#sugg").innerHTML=SUGG.map(s=>`<button type="button">${s}</button>`).join("")
 addMsg(`<p>Bonjour 👋 Je suis votre analyste. Je surveille ${ASSETS.length} actifs et ${people.length} personnes influentes.</p><p>Signal fort du moment : <b>Bitcoin</b>, avec <b class="up">64 % de chances de hausse sur 24 h</b>. Demandez-moi pourquoi, ou touchez une suggestion.</p>`,"bot");
 
 /* ================= flux en direct (simulé) ================= */
+function micro(){
+  ASSETS.forEach(a=>{a.price*=1+gauss(Math.random)*a.v*Math.sqrt(.25/86400)*2.5+(PROBA[a.s][0].p-50)*a.v*1e-6;a.hi=Math.max(a.hi,a.price);a.lo=Math.min(a.lo,a.price);a.spark[a.spark.length-1]=a.price});
+  if(candle&&bars.length)liveBar(BY[current].price);
+}
 function tick(){
-  ASSETS.forEach(a=>{const r=Math.random;const prev=a.price;a.price*=1+gauss(r)*a.v*.035+(PROBA[a.s][0].p-50)*a.v*.0004;a.hi=Math.max(a.hi,a.price);a.lo=Math.min(a.lo,a.price);a.spark[a.spark.length-1]=a.price;
+  ASSETS.forEach(a=>{const prev=a.shown??a.price;a.shown=a.price;
     const el=document.querySelector(`[data-px="${a.s}"]`);if(el){el.textContent=fp(a.price);el.classList.remove("flash-up","flash-down");void el.offsetWidth;el.classList.add(a.price>=prev?"flash-up":"flash-down");const c=document.querySelector(`[data-chg="${a.s}"]`);c.textContent=fpct(chg(a));c.className=cls(chg(a))}});
-  if(candle&&bars.length){const a=BY[current],b=bars[bars.length-1];b.close=a.price;b.high=Math.max(b.high,a.price);b.low=Math.min(b.low,a.price);candle.update({time:b.time,open:b.open,high:b.high,low:b.low,close:b.close})}
   renderAsset();renderTape();
   if(document.activeElement!==$("#tAmount"))updateTradeInfo();
 }
@@ -641,7 +665,7 @@ function renderSent(v){$("#sentVal").textContent=v;$("#sentNeedle").style.transf
 renderTape();renderWatch();renderAsset();renderProba();renderNews();renderAlerts();renderInsiders();renderPeople();renderSent(58);
 try{initChart();renderBacktest()}catch(e){console.error(e)}
 $("#tAsset").value=current;renderPf();updateTradeInfo();
-setInterval(tick,1600);setTimeout(pushNews,9000);setTimeout(pushNews,30000);
+setInterval(micro,250);setInterval(tick,1000);setTimeout(pushNews,9000);setTimeout(pushNews,30000);
 </script>
 </body>
 </html>
