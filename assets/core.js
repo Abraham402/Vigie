@@ -1,3 +1,4 @@
+window.VIGIE_VERSION = "8 · suivi Telegram";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -602,7 +603,8 @@ Facteurs : ${((D.factors || {})[current] || []).map(f => f[0] + " " + Number(f[1
 Watchlist : ${ASSETS.map(x => x.s + " " + fp(x.price) + "$ " + fpct(chg(x)) + (probaOf(x.s) ? " p24h " + probaOf(x.s).p + "%" : "")).join(" | ")}.
 Actus récentes : ${(D.news || []).slice(0, 6).map(n => (n.asset || "") + ": " + n.txt.slice(0, 140) + " (sentiment " + n.s + ")").join(" | ")}.
 Portefeuille fictif : valeur ${pfValue().toFixed(0)} $, capital ${pf.cap} $, liquidités ${pf.cash.toFixed(0)} $, positions ${Object.entries(pf.pos).map(([s, p]) => s + " " + (p.q * (BY[s] ? BY[s].price : 0)).toFixed(0) + "$" + (p.sl ? " stop " + p.sl.toFixed(2) : " sans stop")).join(", ") || "aucune"}.
-Sentiment de marché : ${D.sentiment}/100.`;
+Sentiment de marché : ${D.sentiment}/100.
+Fonctions de l'application à connaître : l'utilisateur peut recevoir sur Telegram un point automatique sur son portefeuille (toutes les heures, 2 h, 4 h ou matin et soir). S'il le demande, ne dis jamais que c'est impossible : dis-lui d'écrire « envoie-moi un point sur mon portefeuille toutes les heures sur Telegram » ou d'aller dans ⚙️ → « Suivi de mon portefeuille sur Telegram ». Suivi actuel : ${CFG.tgReport ? "activé, toutes les " + CFG.tgReport + " min" : "désactivé"}.`;
 }
 let aiHist = [];
 const GEM_MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
@@ -668,6 +670,7 @@ function openSettings() {
   <label class="fld">Votre identifiant de discussion (chat id)<input class="input" id="sTgC" inputmode="numeric" value="${esc(CFG.tgChat)}"></label>
   <label class="fld">Suivi de mon portefeuille sur Telegram<select class="input" id="sRep">${[[0, "Désactivé"], [60, "Toutes les heures"], [120, "Toutes les 2 heures"], [240, "Toutes les 4 heures"], [720, "Matin et soir"]].map(([v, l]) => `<option value="${v}" ${(CFG.tgReport || 0) == v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
   <div class="btn-row"><button class="btn ai-b" id="sSave">Enregistrer</button><button class="btn" id="sFind">Trouver mon chat id</button><button class="btn" id="sTest">Tester Telegram</button><button class="btn" id="sNotif">Activer les notifications</button></div>
+  <p class="kicker" style="margin-top:14px">Version de l'application : <b>${window.VIGIE_VERSION || "?"}</b></p>
   <h3 class="mt">Sauvegarde</h3>
   <p class="kicker">Portefeuille, alertes et progression sont stockés dans ce navigateur. Exportez-les pour les garder ou les transférer.</p>
   <div class="btn-row"><button class="btn" id="sExp">Exporter</button><label class="btn" style="cursor:pointer">Importer<input type="file" id="sImp" accept="application/json" hidden></label></div>
