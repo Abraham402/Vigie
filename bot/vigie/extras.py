@@ -24,6 +24,17 @@ def fmt_amount(v: float) -> str:
     return f"{v:.0f} $"
 
 
+ROLES = [("chief executive officer", "PDG"), ("chief financial officer", "Directeur financier"),
+         ("chief operating officer", "Directeur des opérations"), ("chief technology officer", "Directeur technique"),
+         ("general counsel", "Directeur juridique"), ("president", "Président"), ("director", "Administrateur"),
+         ("officer", "Dirigeant"), ("beneficial owner", "Gros actionnaire")]
+
+
+def role_fr(pos: str) -> str:
+    low = pos.lower()
+    return next((fr for en, fr in ROLES if en in low), pos.title() or "Dirigeant")
+
+
 def insiders(stocks: list[str], days: int = 60) -> list[list]:
     """Transactions des dirigeants (SEC Form 4) via Yahoo Finance."""
     rows = []
@@ -52,8 +63,8 @@ def insiders(stocks: list[str], days: int = 60) -> list[list]:
                 else:
                     continue  # attributions d'actions, options : moins informatifs
                 val = float(r.get("Value") or 0)
-                who = str(r.get("Position") or "Dirigeant").title()
-                rows.append([d.date().isoformat(), f"{str(r.get('Insider') or '').title()} ({who})", "Initié · Form 4", s, op,
+                who = role_fr(str(r.get("Position") or ""))
+                rows.append([d.date().isoformat(), f"{str(r.get('Insider') or '').title()} ({who})", "Initié", s, op,
                              fmt_amount(val) if val else f"{int(r.get('Shares') or 0):,} actions".replace(",", " ")])
         except Exception as e:
             log.warning("initiés %s : %s", s, e)
@@ -87,7 +98,7 @@ def congress(tickers: list[str], days: int = 120) -> list[list]:
                 if not op:
                     continue
                 who = t.get("representative") or t.get("senator") or "Élu"
-                rows.append([d.date().isoformat(), str(who), f"Congrès · {chamber}", tk, op, str(t.get("amount") or "")])
+                rows.append([d.date().isoformat(), str(who), f"Congrès ({chamber})", tk, op, str(t.get("amount") or "").replace("$", " $")])
         except Exception as e:
             log.warning("Congrès %s : %s", chamber, e)
     return rows

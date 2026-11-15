@@ -162,6 +162,7 @@ def run() -> None:
     state = read_json(STATE_DIR / "state.json", {})
     assets = [market.MarketData(s, n, k) for s, n, k in settings["assets"]]
     errors: list[str] = []
+    telegram.resolve_chat(state)
 
     # 1. données de marché (en parallèle)
     with ThreadPoolExecutor(max_workers=5) as ex:

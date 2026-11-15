@@ -187,14 +187,14 @@ function refreshIndicators() {
   markers.setMarkers(show.sig ? sigMarkers(bars) : []);
   drawFib();
 }
-function effTf(a) { if (D.mode === "live" && a.t === "stock" && tf < 300) return 300; return tf }
+function effTf(a) { if (D.mode === "live" && a.t === "stock" && tf < 300) return 300; if (D.mode === "live" && a.t === "crypto" && D.wsOk && !D.wsOk() && a.delayed && tf < 3600) return 3600; return tf }
 async function loadChart() {
   if (!chart) return;
   const a = BY[current], t = effTf(a), key = current + ":" + t;
   if (RP) stopReplay(true);
   if (key !== chartKey) clearDrawings();
   chartKey = key;
-  $("#chartMsg").hidden = t === tf; if (t !== tf) $("#chartMsg").textContent = "Actions : données gratuites différées d'environ 15 min, unité minimale 5 min.";
+  $("#chartMsg").hidden = t === tf; if (t !== tf) $("#chartMsg").textContent = a.t === "stock" ? "Actions : données gratuites différées d'environ 15 min, unité minimale 5 min." : "Binance est injoignable depuis votre connexion : affichage des bougies 1 h du bot.";
   $("#chartLoading").hidden = false;
   let data;
   try { data = cleanBars(await D.getBars(a, t)) } catch (e) { console.error(e); data = [] }
@@ -367,7 +367,7 @@ function renderNews() {
 function pushNews(n) { (D.news || []).forEach(x => x.fresh = false); n.fresh = true; D.news.unshift(n); renderNews(); const b = $("#newsBadge"); b.hidden = false; b.textContent = (+b.textContent || 0) + 1; toast(`Nouvelle actu analysée : ${n.asset || n.srcName || ""}`) }
 
 /* ---------------- alertes (fil Telegram) ---------------- */
-let localAlerts = LS.get("vigie-fired", []);
+let localAlerts = [];
 function tgCard(head, lines, t) { return `<div class="tg"><div class="tg-head"><b>Vigie Bot</b><span>${hhmm(t)}</span></div>${head ? `<p>${head}</p>` : ""}${lines.map(l => `<p>${l}</p>`).join("")}</div>` }
 function renderAlerts() {
   const sum = D.summary, parts = [];
@@ -379,16 +379,16 @@ function renderAlerts() {
 }
 
 /* ---------------- alertes de prix personnelles ---------------- */
-let pAlerts = LS.get("vigie-palerts", null);
+let pAlerts = null;
 function renderPA() {
   const el = $("#paList");
   el.innerHTML = pAlerts.length ? pAlerts.map((x, i) => `<div class="pa"><span><b>${esc(x.s)}</b> ${x.c === "above" ? "passe au-dessus de" : "passe en dessous de"} <b class="num">${fp(x.p)} $</b>${x.done ? ` <span class="chip up">déclenchée</span>` : ""}</span><button class="toggle" data-pa="${i}">Supprimer</button></div>`).join("") : `<div class="empty">Aucune alerte. Créez-en une ci-dessus.</div>`;
-  $$("[data-pa]").forEach(b => b.onclick = () => { pAlerts.splice(+b.dataset.pa, 1); LS.set("vigie-palerts", pAlerts); renderPA() });
+  $$("[data-pa]").forEach(b => b.onclick = () => { pAlerts.splice(+b.dataset.pa, 1); LS.set(MK("vigie-palerts"), pAlerts); renderPA() });
 }
 function checkPA() {
   let ch = false;
-  pAlerts.forEach(x => { if (x.done) return; const a = BY[x.s]; if (!a) return; if ((x.c === "above" && a.price >= x.p) || (x.c === "below" && a.price <= x.p)) { x.done = true; ch = true; const msg = `${a.n} est passé ${x.c === "above" ? "au-dessus" : "en dessous"} de ${fp(x.p)} $ (prix actuel ${fp(a.price)} $).`; localAlerts.unshift({ t: Date.now(), s: x.s, msg }); localAlerts = localAlerts.slice(0, 30); LS.set("vigie-fired", localAlerts); notify(`🔔 ${x.s} : ${fp(a.price)} $`, msg); sendTelegram(`🔔 Alerte prix ${x.s}\n${msg}`); renderAlerts(); toast("🔔 " + msg) } });
-  if (ch) { LS.set("vigie-palerts", pAlerts); renderPA() }
+  pAlerts.forEach(x => { if (x.done) return; const a = BY[x.s]; if (!a) return; if ((x.c === "above" && a.price >= x.p) || (x.c === "below" && a.price <= x.p)) { x.done = true; ch = true; const msg = `${a.n} est passé ${x.c === "above" ? "au-dessus" : "en dessous"} de ${fp(x.p)} $ (prix actuel ${fp(a.price)} $).`; localAlerts.unshift({ t: Date.now(), s: x.s, msg }); localAlerts = localAlerts.slice(0, 30); LS.set(MK("vigie-fired"), localAlerts); notify(`🔔 ${x.s} : ${fp(a.price)} $`, msg); sendTelegram(`🔔 Alerte prix ${x.s}\n${msg}`); renderAlerts(); toast("🔔 " + msg) } });
+  if (ch) { LS.set(MK("vigie-palerts"), pAlerts); renderPA() }
 }
 
 /* ---------------- notifications & Telegram (navigateur) ---------------- */
@@ -435,9 +435,11 @@ function renderWhales() {
    PORTEFEUILLE FICTIF
    ===================================================================== */
 const FEE = .001;
-let pf = LS.get("vigie-pf", null);
+let pf = null;
+const MK = k => k + (D && D.mode === "demo" ? "-demo" : "-live");
 function newPf(cap) { return { cap, cash: cap, pos: {}, hist: [], orders: [], eq: [{ t: Date.now(), v: cap }], start: Date.now() } }
 function pfInit() {
+  pf = LS.get(MK("vigie-pf"), null);
   if (!pf) {
     pf = newPf(10000);
     if (D.mode === "demo") {
@@ -448,7 +450,7 @@ function pfInit() {
   }
   pf.orders = pf.orders || [];
 }
-function savePf() { LS.set("vigie-pf", pf) }
+function savePf() { LS.set(MK("vigie-pf"), pf) }
 function pfValue() { let v = pf.cash; for (const s in pf.pos) if (BY[s]) v += pf.pos[s].q * BY[s].price; return v }
 function pushEq() { const v = pfValue(), last = pf.eq[pf.eq.length - 1]; if (!last || Date.now() - last.t > 60000) pf.eq.push({ t: Date.now(), v }); else last.v = v; if (pf.eq.length > 2000) pf.eq.splice(0, pf.eq.length - 2000) }
 function execBuy(s, amt, px, meta = {}) {
@@ -634,16 +636,17 @@ function openSettings() {
   <h3 class="mt">Telegram pour vos alertes de prix (facultatif)</h3>
   <label class="fld">Jeton du bot (donné par BotFather)<input class="input" id="sTgT" type="password" autocomplete="off" value="${esc(CFG.tgToken)}"></label>
   <label class="fld">Votre identifiant de discussion (chat id)<input class="input" id="sTgC" inputmode="numeric" value="${esc(CFG.tgChat)}"></label>
-  <div class="btn-row"><button class="btn ai-b" id="sSave">Enregistrer</button><button class="btn" id="sTest">Tester Telegram</button><button class="btn" id="sNotif">Activer les notifications</button></div>
+  <div class="btn-row"><button class="btn ai-b" id="sSave">Enregistrer</button><button class="btn" id="sFind">Trouver mon chat id</button><button class="btn" id="sTest">Tester Telegram</button><button class="btn" id="sNotif">Activer les notifications</button></div>
   <h3 class="mt">Sauvegarde</h3>
   <p class="kicker">Portefeuille, alertes et progression sont stockés dans ce navigateur. Exportez-les pour les garder ou les transférer.</p>
   <div class="btn-row"><button class="btn" id="sExp">Exporter</button><label class="btn" style="cursor:pointer">Importer<input type="file" id="sImp" accept="application/json" hidden></label></div>
   </div>`);
   $("#sSave").onclick = () => { CFG.gemini = $("#sGem").value.trim(); CFG.geminiModel = $("#sGemM").value.trim() || "gemini-flash-latest"; CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); saveCfg(); aiHist = []; toast("Réglages enregistrés"); renderAiHead() };
   $("#sTest").onclick = async () => { CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); saveCfg(); toast(await sendTelegram("✅ Vigie est bien connecté à votre Telegram.") ? "Message envoyé sur Telegram ✓" : "Échec : vérifiez le jeton et le chat id") };
+  $("#sFind").onclick = async () => { const tk = $("#sTgT").value.trim(); if (!tk) return toast("Collez d'abord le jeton du bot"); try { const j = await (await fetch(`https://api.telegram.org/bot${tk}/getUpdates`)).json(); const u = (j.result || []).reverse().find(x => x.message && x.message.chat && x.message.chat.type === "private"); if (u) { $("#sTgC").value = u.message.chat.id; toast("Chat id trouvé ✓ Pensez à enregistrer") } else toast("Envoyez d'abord /start à votre bot dans Telegram, puis réessayez") } catch (e) { toast("Jeton invalide ou connexion impossible") } };
   $("#sNotif").onclick = () => { askNotif(); setTimeout(() => notify("Vigie", "Les notifications fonctionnent ✓"), 1200) };
   $("#sExp").onclick = () => { const b = new Blob([JSON.stringify({ pf, pAlerts, learn: LS.get("vigie-learn", null) }, null, 1)], { type: "application/json" }); const u = URL.createObjectURL(b), l = document.createElement("a"); l.href = u; l.download = `vigie-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 1000) };
-  $("#sImp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const j = JSON.parse(t); if (j.pf) LS.set("vigie-pf", j.pf); if (j.pAlerts) LS.set("vigie-palerts", j.pAlerts); if (j.learn) LS.set("vigie-learn", j.learn); toast("Sauvegarde importée"); setTimeout(() => location.reload(), 600) } catch (err) { toast("Fichier invalide") } }) };
+  $("#sImp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const j = JSON.parse(t); if (j.pf) LS.set(MK("vigie-pf"), j.pf); if (j.pAlerts) LS.set(MK("vigie-palerts"), j.pAlerts); if (j.learn) LS.set("vigie-learn", j.learn); toast("Sauvegarde importée"); setTimeout(() => location.reload(), 600) } catch (err) { toast("Fichier invalide") } }) };
 }
 function renderAiHead() { $("#aiSub").textContent = CFG.gemini ? "Gemini connecté · répond avec les données en direct" : (D.mode === "demo" ? "Réponses simulées dans la démo" : "Mode simple · ajoutez une clé Gemini gratuite dans ⚙️") }
 
@@ -689,7 +692,7 @@ function bindUI() {
   $("#paAsset").innerHTML = $("#tAsset").innerHTML = ASSETS.map(a => `<option value="${a.s}">${a.s} · ${esc(a.n)}</option>`).join("");
   const paFill = () => { const a = BY[$("#paAsset").value]; $("#paPrice").value = +(a.price * ($("#paCond").value === "above" ? 1.01 : .99)).toFixed(dec(a.price)) };
   $("#paAsset").onchange = paFill; $("#paCond").onchange = paFill;
-  $("#paForm").onsubmit = e => { e.preventDefault(); const p = +$("#paPrice").value; if (!(p > 0)) return; pAlerts.push({ s: $("#paAsset").value, c: $("#paCond").value, p }); LS.set("vigie-palerts", pAlerts); renderPA(); askNotif(); toast("Alerte créée") };
+  $("#paForm").onsubmit = e => { e.preventDefault(); const p = +$("#paPrice").value; if (!(p > 0)) return; pAlerts.push({ s: $("#paAsset").value, c: $("#paCond").value, p }); LS.set(MK("vigie-palerts"), pAlerts); renderPA(); askNotif(); toast("Alerte créée") };
   $("#tAsset").onchange = updateTradeInfo; ["#tAmount", "#tSL", "#tTP"].forEach(s => $(s).oninput = updateTradeInfo);
   $$("[data-q]").forEach(b => b.onclick = () => { $("#tAmount").value = Math.floor(pf.cash / (1 + FEE) * +b.dataset.q); updateTradeInfo() });
   $$("[data-ot]").forEach(b => b.onclick = () => { otype = b.dataset.ot; $$("[data-ot]").forEach(x => x.setAttribute("aria-pressed", x === b)); $("#limitWrap").hidden = otype !== "limit"; if (otype === "limit") { const a = BY[$("#tAsset").value]; $("#tLimit").value = +(a.price * .99).toFixed(dec(a.price)) } });
@@ -705,7 +708,8 @@ async function startApp(data) {
   D = data; ASSETS = D.assets; BY = Object.fromEntries(ASSETS.map(a => [a.s, a]));
   current = BY[LS.get("vigie-cur", "BTC")] ? LS.get("vigie-cur", "BTC") : ASSETS[0].s;
   people = LS.get("vigie-people", D.people || ["Président de la Fed", "Secrétaire au Trésor US", "Président des États-Unis", "PDG de Tesla", "PDG de Nvidia", "Présidente de la BCE", "Dirigeant de BlackRock", "Membres du Congrès US"]);
-  if (pAlerts === null) { pAlerts = BY.BTC ? [{ s: "BTC", c: "above", p: +(BY.BTC.price * 1.0004).toFixed(0) }] : []; LS.set("vigie-palerts", pAlerts) }
+  pAlerts = LS.get(MK("vigie-palerts"), null); localAlerts = LS.get(MK("vigie-fired"), []);
+  if (pAlerts === null) { pAlerts = BY.BTC ? [{ s: "BTC", c: "above", p: +(BY.BTC.price * 1.0004).toFixed(0) }] : []; LS.set(MK("vigie-palerts"), pAlerts) }
   pfInit(); bindUI();
   renderStatus(); renderTape(); renderWatch(); renderHeat(); renderCalendar(); renderAsset(); renderProba(); renderNews(); renderAlerts(); renderInsiders(); renderSources(); renderPeople(); renderPA(); renderSent(D.sentiment ?? 50);
   $("#tAsset").value = current; $("#paAsset").onchange(); renderPf(); renderAiHead();

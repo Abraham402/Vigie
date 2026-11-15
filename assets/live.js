@@ -41,9 +41,16 @@
     async getBars(a, tf) {
       if (a.t === "crypto") {
         try { const k = await binance(`/api/v3/klines?symbol=${sym(a.s)}&interval=${IV[tf]}&limit=${tf === 1 ? 600 : 500}`); return k.map(r => ({ time: Math.floor(r[0] / 1000), open: +r[1], high: +r[2], low: +r[3], close: +r[4], value: +r[5] })) }
-        catch (e) { const m = this._market[a.s]; const t = tf < 300 ? 300 : tf; return rowsToBars(m && m.bars && m.bars[t]) }
+        catch (e) { return this.botBars(a.s, tf) }
       }
-      const m = this._market[a.s]; return rowsToBars(m && m.bars && (m.bars[tf] || m.bars[300]));
+      return this.botBars(a.s, tf);
+    },
+    /* bougies calculées par le bot : unité demandée, sinon la plus proche disponible */
+    botBars(s, tf) {
+      const m = this._market[s]; if (!m || !m.bars) return [];
+      const keys = Object.keys(m.bars).map(Number).filter(k => m.bars[k] && m.bars[k].length).sort((x, y) => x - y);
+      const k = keys.find(x => x >= tf) || keys[keys.length - 1];
+      return rowsToBars(m.bars[k]);
     },
     start(onPrice) {
       const crypto = this.assets.filter(a => a.t === "crypto");

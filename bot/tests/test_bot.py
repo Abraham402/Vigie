@@ -131,3 +131,10 @@ def test_epoch_seconds_any_unit():
         assert list(epoch_s(idx)) == [1767225600, 1767225900]
     rows = to_rows(synth(5).set_axis(pd.date_range("2026-01-01", periods=5, freq="5min", tz="UTC").as_unit("ms")), 5)
     assert rows[1][0] - rows[0][0] == 300
+
+
+def test_insider_roles_in_french():
+    from vigie.extras import role_fr
+    assert role_fr("Chief Financial Officer") == "Directeur financier"
+    assert role_fr("Officer and Director") == "Administrateur"
+    assert role_fr("Director") == "Administrateur"
