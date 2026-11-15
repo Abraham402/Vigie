@@ -605,19 +605,37 @@ Portefeuille fictif : valeur ${pfValue().toFixed(0)} $, capital ${pf.cap} $, liq
 Sentiment de marché : ${D.sentiment}/100.`;
 }
 let aiHist = [];
+const GEM_MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+const gemNoThink = {};
+/* Appel Gemini : modèle choisi puis modèles de secours ; 25 s max par modèle ; sans « réflexion » (plus rapide) */
 async function geminiReply(q) {
-  const body = { systemInstruction: { parts: [{ text: aiContext() }] }, contents: [...aiHist.slice(-6), { role: "user", parts: [{ text: q }] }], generationConfig: { temperature: .6, maxOutputTokens: 700 } };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(CFG.geminiModel || "gemini-flash-latest")}:generateContent?key=${encodeURIComponent(CFG.gemini)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error("code " + r.status);
-  const j = await r.json(); const txt = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || []).map(p => p.text).join("");
-  if (!txt) throw new Error("réponse vide");
-  aiHist.push({ role: "user", parts: [{ text: q }] }, { role: "model", parts: [{ text: txt }] });
-  return mdToHtml(txt);
+  const models = [CFG.geminiModel || GEM_MODELS[0], ...GEM_MODELS.filter(m => m !== (CFG.geminiModel || GEM_MODELS[0]))];
+  const contents = [...aiHist.slice(-6), { role: "user", parts: [{ text: q }] }];
+  let last = "";
+  for (const m of models) {
+    for (let k = 0; k < 2; k++) {
+      const gc = { temperature: .6, maxOutputTokens: 800 };
+      if (gemNoThink[m] !== false) gc.thinkingConfig = { thinkingBudget: 0 };
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+      let r;
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(CFG.gemini)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemInstruction: { parts: [{ text: aiContext() }] }, contents, generationConfig: gc }), signal: ctl.signal });
+      } catch (e) { last = e.name === "AbortError" ? "délai dépassé" : e.message; clearTimeout(timer); break }
+      clearTimeout(timer);
+      if (r.status === 400 && gemNoThink[m] !== false) { gemNoThink[m] = false; continue }
+      if (!r.ok) { last = "code " + r.status; if (r.status === 400 || r.status === 403) { const t = await r.text(); if (/API key/i.test(t)) throw new Error("clé refusée par Google : vérifiez-la dans ⚙️") } break }
+      const j = await r.json(); const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).filter(p => !p.thought).map(p => p.text).join("");
+      if (!txt) { last = "réponse vide"; break }
+      aiHist.push({ role: "user", parts: [{ text: q }] }, { role: "model", parts: [{ text: txt }] });
+      return mdToHtml(txt);
+    }
+  }
+  throw new Error("Google est saturé pour le moment (" + last + ")");
 }
 const aiHooks = [];
 async function aiAnswer(q) {
   for (const h of aiHooks) { const r = h(q); if (r) return r }
-  if (CFG.gemini) { try { return await geminiReply(q) } catch (e) { console.warn(e); return ruleReply(q) + `<p class="muted" style="font-size:11px">IA Gemini indisponible (${esc(e.message)}) : réponse de secours.</p>` } }
+  if (CFG.gemini) { try { return await geminiReply(q) } catch (e) { console.warn(e); return ruleReply(q) + `<p class="muted" style="font-size:11px">IA Gemini indisponible : ${esc(e.message)}. Réponse de secours ; réessayez dans quelques minutes.</p>` } }
   return ruleReply(q);
 }
 function addMsg(html, who) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = html; $("#chat").appendChild(d); $("#chat").scrollTop = 1e6; return d }
