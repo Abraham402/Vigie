@@ -1,1 +1,331 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=demo.html"><title>Vigie</title></head><body style="background:#0B1220;color:#E6ECF5;font-family:system-ui"><a href="demo.html" style="color:#9B8AFB">Ouvrir la démo Vigie</a></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+<meta name="theme-color" content="#0B1220">
+<meta name="description" content="Vigie : terminal d'apprentissage du trading. Données de marché réelles, probabilités calculées par un bot, IA analyste et portefeuille fictif.">
+<title>Vigie</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vigie">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=2">
+<script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+<div id="boot" class="boot"><div class="boot-in"><svg width="44" height="44" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#14203A"/><path d="M5 17l5-6 4 4 7-9" fill="none" stroke="#16C784" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21" cy="6" r="2.2" fill="#9B8AFB"/></svg><b>Vigie</b><span id="bootMsg">Connexion aux marchés…</span></div></div>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#14203A"/><path d="M5 17l5-6 4 4 7-9" fill="none" stroke="#16C784" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21" cy="6" r="2.2" fill="#9B8AFB"/></svg>
+      Vigie <span id="modeTag" class="demo-tag">…</span>
+    </div>
+    <div class="botstat" title="Le bot d'analyse tourne sur GitHub Actions toutes les 15 minutes"><span class="pulse"></span><span class="long">Bot actif</span><span class="long" id="botStatus"></span></div>
+    <div class="hbtns">
+      <button class="hbtn desk" id="learnNav" title="Aller à l'académie"><svg viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg><span id="xpMini">Apprendre</span></button>
+      <button class="hbtn" id="learnToggle" aria-pressed="false" title="Mode apprentissage : affiche des « ? » explicatifs"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg><span class="long">Mode « ? »</span></button>
+      <button class="hbtn" id="tourBtn" title="Visite guidée"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg><span class="long">Visite</span></button>
+      <button class="hbtn" id="installBtn" hidden title="Installer l'application"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span class="long">Installer</span></button>
+      <button class="hbtn" id="settingsBtn" title="Réglages" aria-label="Réglages"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </div>
+  <div class="tape" aria-hidden="true"><div class="tape-inner" id="tape"></div></div>
+</header>
+
+<main class="app">
+
+  <!-- ============ MARCHÉ ============ -->
+  <section class="view v-market active" data-v="market" aria-label="Marché">
+    <div class="card">
+      <div class="card-h"><h2 data-term="Sentiment">Sentiment du marché</h2><span class="chip flat" id="sentChip">Neutre</span></div>
+      <div class="sentiment">
+        <svg width="96" height="56" viewBox="0 0 96 56" aria-hidden="true">
+          <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0" stop-color="#EA3943"/><stop offset=".5" stop-color="#F5B83D"/><stop offset="1" stop-color="#16C784"/></linearGradient></defs>
+          <path d="M8 50a40 40 0 0 1 80 0" fill="none" stroke="url(#sg)" stroke-width="8" stroke-linecap="round"/>
+          <line id="sentNeedle" x1="48" y1="50" x2="48" y2="18" stroke="#E6ECF5" stroke-width="2.5" stroke-linecap="round" style="transform-origin:48px 50px;transition:transform .8s"/>
+          <circle cx="48" cy="50" r="4" fill="#E6ECF5"/>
+        </svg>
+        <div class="sent-txt"><b class="num" id="sentVal">50</b><span class="muted" style="font-size:12px">Indice peur / avidité : actualités, réseaux et volatilité</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Watchlist</h2>
+        <div class="segmented" role="group" aria-label="Filtrer">
+          <button aria-pressed="true" data-wf="all">Tout</button><button aria-pressed="false" data-wf="crypto">Crypto</button><button aria-pressed="false" data-wf="stock">Actions</button>
+        </div>
+      </div>
+      <ul class="wl" id="watchlist"></ul>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2 data-term="Carte de chaleur">Carte de chaleur</h2><span class="muted sm">variation 24 h</span></div>
+      <div class="heat" id="heatmap"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2 data-term="Calendrier économique">Calendrier économique</h2><span class="muted sm">heure locale</span></div>
+      <div id="calendar"></div>
+    </div>
+  </section>
+
+  <!-- ============ ANALYSE ============ -->
+  <section class="view v-chart" data-v="chart" aria-label="Analyse">
+    <div class="card" id="chartCard">
+      <div class="asset-head">
+        <div>
+          <div class="title"><b id="aSym">—</b><span id="aName"></span> <span class="dly" id="aDelay" hidden title="Données gratuites différées d'environ 15 minutes">différé 15 min</span></div>
+          <div class="big num" id="aPrice">—</div>
+        </div>
+        <div class="num" id="aChg" style="font-weight:600;padding-bottom:2px"></div>
+        <div class="stats num">
+          <span>Haut 24 h<b id="aHi">—</b></span><span>Bas 24 h<b id="aLo">—</b></span><span>Vol. 24 h<b id="aVol">—</b></span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Unité de temps">
+          <button aria-pressed="false" data-tf="1">1 s</button><button aria-pressed="true" data-tf="60">1 min</button><button aria-pressed="false" data-tf="300">5 min</button><button aria-pressed="false" data-tf="900">15 min</button><button aria-pressed="false" data-tf="3600">1 h</button><button aria-pressed="false" data-tf="14400">4 h</button><button aria-pressed="false" data-tf="86400">1 J</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Style de la courbe">
+          <button aria-pressed="true" data-st="candles">Bougies</button><button aria-pressed="false" data-st="ha">Heikin Ashi</button><button aria-pressed="false" data-st="bars">Barres</button><button aria-pressed="false" data-st="line">Ligne</button><button aria-pressed="false" data-st="area">Aire</button>
+        </div>
+      </div>
+      <div class="toolbar" id="toolsRow">
+        <button class="toggle" aria-pressed="true" data-ind="ema" data-term="EMA">EMA 20/50</button>
+        <button class="toggle" aria-pressed="false" data-ind="bb" data-term="Bollinger">Bollinger</button>
+        <button class="toggle" aria-pressed="false" data-ind="vwap" data-term="VWAP">VWAP</button>
+        <button class="toggle" aria-pressed="false" data-ind="ichi" data-term="Ichimoku">Ichimoku</button>
+        <button class="toggle" aria-pressed="false" data-ind="fib" data-term="Fibonacci">Fibonacci</button>
+        <button class="toggle" aria-pressed="true" data-ind="rsi" data-term="RSI">RSI</button>
+        <button class="toggle" aria-pressed="false" data-ind="macd" data-term="MACD">MACD</button>
+        <button class="toggle" aria-pressed="true" data-ind="sig">Croisements</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="toggle" data-draw="h" aria-pressed="false" title="Tracer un support ou une résistance">― Niveau</button>
+        <button class="toggle" data-draw="t" aria-pressed="false" title="Tracer une ligne de tendance">╱ Tendance</button>
+        <button class="toggle" id="clearDraw">Effacer</button>
+        <select class="toggle" id="cmpSel" aria-label="Comparer avec un autre actif"></select>
+        <button class="toggle" id="replayBtn" aria-pressed="false" title="S'entraîner sur le passé">⏮ Rejouer</button>
+        <button class="toggle" id="fsBtn">⛶ Plein écran</button>
+      </div>
+      <p class="draw-hint" id="drawHint" hidden></p>
+      <p class="chart-msg" id="chartMsg" hidden></p>
+      <div class="ohlc num" id="ohlc"></div>
+      <div class="chart-wrap"><div id="chart"></div><div class="chart-loading" id="chartLoading" hidden><span class="spin"></span></div></div>
+      <div class="replay" id="replayBar" hidden>
+        <b>Mode Rejouer</b><span class="muted">La prochaine bougie sera…</span>
+        <button class="btn buy" id="rpUp">▲ Verte</button><button class="btn sell" id="rpDn">▼ Rouge</button>
+        <span id="rpFb"></span><span class="num" id="rpScore"></span><span class="muted num" id="rpLeft"></span>
+        <button class="btn" id="rpPlay">▶ Lecture</button><button class="btn" id="rpQuit">Quitter</button>
+      </div>
+      <div class="legend"><span><i style="background:#F5B83D"></i>EMA 20</span><span><i style="background:#9B8AFB"></i>EMA 50</span><span><i style="background:#E879F9"></i>VWAP</span><span><i style="background:#16C784"></i>▲ ▼ croisements des moyennes</span><span id="cmpLegend"></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2 data-term="Confiance">Probabilités du bot</h2><span class="chip ai">Machine learning + statistiques</span></div>
+      <div class="verdict"><div class="ai-orb sm"></div><p id="verdict"></p></div>
+      <div class="gauges" id="gauges"></div>
+      <div class="factors" id="factors"></div>
+    </div>
+
+    <div class="card" id="btCard">
+      <div class="card-h"><h2 data-term="Backtesting">Backtesting : fiabilité réelle du bot</h2></div>
+      <div class="bt-grid num" id="btKpis"></div>
+      <p class="muted sm" id="btNote" style="margin:-4px 0 10px"></p>
+      <h3 style="margin-bottom:6px">Stratégie du bot vs achat simple (base 100)</h3>
+      <div id="btchart"></div>
+      <h3 style="margin-top:14px" data-term="Calibration">Calibration : quand le bot annonce X %, ça monte vraiment…</h3>
+      <div class="calib" id="calib"></div>
+      <div class="legend"><span><i style="background:#9B8AFB"></i>prédit</span><span><i style="background:#16C784"></i>observé</span></div>
+    </div>
+
+    <div class="card" id="obCard">
+      <div class="card-h"><h2 data-term="Carnet d'ordres">Carnet d'ordres en direct</h2><span class="chip" id="spread"></span></div>
+      <div class="ob-grid">
+        <div><div class="ob" id="orderbook"></div><div id="obRatio"></div></div>
+        <div><h3 data-term="Baleine">Grosses transactions (baleines)</h3><div id="whales" class="whales"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ACTUS ============ -->
+  <section class="view v-news" data-v="news" aria-label="Actualités">
+    <div class="card" id="newsCard">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="feed">Actus analysées</button>
+        <button role="tab" aria-selected="false" data-tab="alerts">Alertes</button>
+        <button role="tab" aria-selected="false" data-tab="myalerts">Mes alertes prix</button>
+        <button role="tab" aria-selected="false" data-tab="insiders">Initiés &amp; Congrès</button>
+        <button role="tab" aria-selected="false" data-tab="sources">Fiabilité des sources</button>
+        <button role="tab" aria-selected="false" data-tab="people">Personnes suivies</button>
+      </div>
+      <div data-panel="feed">
+        <div class="filters" id="newsFilters">
+          <button aria-pressed="true" data-nf="all">Tout</button><button aria-pressed="false" data-nf="crypto">Crypto</button><button aria-pressed="false" data-nf="stock">Actions</button><button aria-pressed="false" data-nf="official">Officiel</button><button aria-pressed="false" data-nf="social">Réseaux</button>
+        </div>
+        <div class="feed" id="feed"></div>
+      </div>
+      <div data-panel="alerts" hidden>
+        <p class="muted sm" style="margin:0 0 10px">Les messages envoyés sur votre Telegram, au même format.</p>
+        <div class="feed" id="alerts"></div>
+      </div>
+      <div data-panel="myalerts" hidden>
+        <form class="pa-form" id="paForm">
+          <select class="input" id="paAsset" aria-label="Actif"></select>
+          <select class="input" id="paCond" aria-label="Condition"><option value="above">passe au-dessus de</option><option value="below">passe en dessous de</option></select>
+          <input class="input num" id="paPrice" type="number" step="any" aria-label="Prix" inputmode="decimal">
+          <button class="btn ai-b">Créer l'alerte</button>
+        </form>
+        <div id="paList" style="margin-top:8px"></div>
+        <p class="sources">L'alerte s'affiche ici et en notification ; ajoutez Telegram dans ⚙️ pour la recevoir aussi sur votre téléphone.</p>
+      </div>
+      <div data-panel="insiders" hidden>
+        <p class="muted sm" style="margin:0 0 10px"><span data-term="Initiés">Déclarations publiques</span> : SEC Form 4 (dirigeants d'entreprise) et déclarations des membres du Congrès américain.</p>
+        <div class="tbl-wrap"><table id="insiders"></table></div>
+      </div>
+      <div data-panel="sources" hidden>
+        <p class="muted sm" style="margin:0 0 10px">Pour chaque source : le pourcentage de fois où le prix a bougé dans le sens de l'actualité dans les 24 h suivantes.</p>
+        <div class="tbl-wrap"><table id="srcRank"></table></div>
+      </div>
+      <div data-panel="people" hidden>
+        <p class="muted sm" style="margin:0 0 10px">Le bot repère leurs déclarations dans les flux RSS, Reddit et la presse financière gratuite.</p>
+        <div class="people" id="people"></div>
+        <form class="add-row" id="addPerson"><input class="input" id="personInput" placeholder="Ajouter un nom ou un rôle" aria-label="Ajouter une personne"><button class="btn">Ajouter</button></form>
+        <p class="sources">Pour que le bot surveille aussi ce nom, ajoutez-le au fichier <a href="https://github.com/Abraham402/Vigie/edit/main/config/people.txt" target="_blank" rel="noopener">config/people.txt</a> sur GitHub (une ligne par personne).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ IA ============ -->
+  <section class="view v-ai" data-v="ai" aria-label="IA analyste">
+    <div class="card ai-card" id="aiCard">
+      <div class="ai-head"><div class="ai-orb"></div><div><h2>Analyste IA</h2><span class="muted sm" id="aiSub"></span></div></div>
+      <div class="chat" id="chat" aria-live="polite"></div>
+      <div class="sugg" id="sugg"></div>
+      <form class="ai-form" id="aiForm"><input class="input" id="aiInput" placeholder="Une question sur un actif, un terme…" aria-label="Question à l'IA" autocomplete="off"><button class="btn ai-b">Envoyer</button></form>
+    </div>
+  </section>
+
+  <!-- ============ PORTEFEUILLE ============ -->
+  <section class="view v-pf" data-v="pf" aria-label="Portefeuille fictif">
+    <div class="card">
+      <div class="card-h"><h2>Portefeuille fictif</h2><button class="toggle" id="pfReset">Réinitialiser</button></div>
+      <div class="pf-kpis num" id="pfKpis"></div>
+    </div>
+    <div class="pf-grid">
+      <div class="card">
+        <div class="card-h"><h2>Passer un ordre virtuel</h2></div>
+        <form class="trade" id="tradeForm" onsubmit="return false">
+          <label>Actif<select class="input" id="tAsset"></select></label>
+          <div class="segmented" role="group" aria-label="Type d'ordre"><button type="button" aria-pressed="true" data-ot="market">Au marché</button><button type="button" aria-pressed="false" data-ot="limit">Limite</button></div>
+          <div class="row2">
+            <label>Montant ($)<input class="input num" id="tAmount" type="number" min="1" step="1" value="1000" inputmode="decimal"></label>
+            <label>Prix actuel<input class="input num" id="tPrice" readonly></label>
+          </div>
+          <label id="limitWrap" hidden><span data-term="Ordre limite">Prix limite ($)</span><input class="input num" id="tLimit" type="number" step="any" inputmode="decimal"></label>
+          <div class="quick"><button type="button" data-q=".1">10 %</button><button type="button" data-q=".25">25 %</button><button type="button" data-q=".5">50 %</button><button type="button" data-q="1">Max</button></div>
+          <div class="row2">
+            <label><span data-term="Stop-loss">Stop-loss (%)</span><input class="input num" id="tSL" type="number" min="0" step="0.5" placeholder="ex. 3" inputmode="decimal"></label>
+            <label><span data-term="Take-profit">Take-profit (%)</span><input class="input num" id="tTP" type="number" min="0" step="0.5" placeholder="ex. 6" inputmode="decimal"></label>
+          </div>
+          <div class="sizer" id="sizer"></div>
+          <label><span data-term="Journal de trading">Pourquoi ce trade ?</span><select class="input" id="tSetup"><option>Signal du bot</option><option>Cassure de résistance</option><option>Rebond sur support</option><option>Actualité</option><option>Indicateur (RSI, MACD…)</option><option>Intuition</option></select></label>
+          <textarea class="input" id="tNote" rows="2" placeholder="Votre raisonnement en une phrase (facultatif)"></textarea>
+          <div class="trade-info" id="tInfo"></div>
+          <div class="row2"><button class="btn buy" type="button" id="bBuy">Acheter</button><button class="btn sell" type="button" id="bSell">Vendre</button></div>
+          <label style="margin-top:6px">Capital de départ ($)<div class="add-row" style="margin:0"><input class="input num" id="pfCap" type="number" min="100" step="100"><button class="btn" type="button" id="pfCapBtn">Recommencer</button></div></label>
+        </form>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="card-h"><h2>Performance</h2><span class="muted sm" id="pfSince"></span></div>
+          <div id="pfchart"></div>
+          <div class="verdict" style="margin:12px 0 0"><div class="ai-orb sm"></div><p id="pfAi"></p></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2 data-term="Diversification">Risque du portefeuille</h2></div>
+          <div id="risk"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Positions</h2></div>
+      <div class="tbl-wrap"><table id="positions"></table></div>
+    </div>
+    <div class="pf-grid2">
+      <div class="card">
+        <div class="card-h"><h2>Ordres et protections</h2></div>
+        <div id="orders"></div>
+      </div>
+      <div class="card" id="journalCard">
+        <div class="card-h"><h2 data-term="Journal de trading">Journal de trading</h2></div>
+        <div class="verdict" style="margin-bottom:10px"><div class="ai-orb sm"></div><p id="journalAi"></p></div>
+        <div id="journal"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Historique</h2></div>
+      <div class="tbl-wrap"><table id="history"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ APPRENDRE ============ -->
+  <section class="view v-learn" data-v="learn" aria-label="Apprendre">
+    <div class="card learn-hero">
+      <div class="card-h"><h2>Académie Vigie</h2><button class="toggle" id="learnTour">Revoir la visite guidée</button></div>
+      <div id="learnHead"></div>
+    </div>
+    <div class="learn-grid">
+      <div class="card">
+        <div class="card-h"><h2>Votre parcours</h2><span class="muted sm">8 modules · quiz · missions</span></div>
+        <ol class="path" id="path"></ol>
+      </div>
+      <div class="col">
+        <div class="card chal">
+          <h2>Défi : lisez le marché</h2>
+          <p class="muted sm" style="margin:6px 0 0">Le Bitcoin sera-t-il plus haut ou plus bas dans 30 secondes ?</p>
+          <div class="big num" id="chPx">—</div>
+          <div class="btn-row" style="justify-content:center;margin-top:4px"><button class="btn buy" id="chUp">▲ Plus haut</button><button class="btn sell" id="chDn">▼ Plus bas</button></div>
+          <p id="chRes" class="sm" style="min-height:20px"></p>
+          <p id="chStats" class="muted sm" style="margin:0"></p>
+        </div>
+        <div class="card">
+          <h2>Les règles d'or du trader</h2>
+          <ol class="rules" id="rules"></ol>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Glossaire</h2></div>
+          <input class="input" id="glossQ" placeholder="Chercher un terme (RSI, spread…)" aria-label="Chercher dans le glossaire">
+          <dl class="gloss" id="gloss"></dl>
+        </div>
+      </div>
+    </div>
+    <p class="disclaimer">Vigie est un outil d'apprentissage. Les probabilités sont des estimations statistiques, pas des conseils en investissement. Le portefeuille est fictif.</p>
+  </section>
+</main>
+
+<nav class="bottom-nav" aria-label="Navigation">
+  <button data-go="market" aria-current="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Marché</button>
+  <button data-go="chart"><svg viewBox="0 0 24 24"><path d="M6 4v16M4 8h4v6H4zM12 3v18M10 6h4v9h-4zM18 6v14M16 10h4v6h-4z"/></svg>Analyse</button>
+  <button data-go="news"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Actus<span class="badge" id="newsBadge" hidden>0</span></button>
+  <button data-go="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>IA</button>
+  <button data-go="pf"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>Portefeuille</button>
+  <button data-go="learn"><svg viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg>Apprendre</button>
+</nav>
+
+<div class="modal" id="modal" hidden><div class="modal-box" role="dialog" aria-modal="true"><button class="modal-x" aria-label="Fermer">×</button><div id="modalBody"></div></div></div>
+<div class="pop" id="pop" hidden></div>
+<div class="tour-hl" id="tourHl" hidden></div>
+<div class="tour-tip" id="tourTip" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="assets/data-demo.js?v=2"></script>
+<script src="assets/live.js?v=2"></script>
+<script src="assets/core.js?v=2"></script>
+<script src="assets/learn.js?v=2"></script>
+<script src="assets/boot.js?v=2"></script>
+</body>
+</html>
