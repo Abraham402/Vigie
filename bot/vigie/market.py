@@ -108,12 +108,20 @@ def resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:
     return o.dropna()
 
 
+def epoch_s(index: pd.DatetimeIndex) -> np.ndarray:
+    """Secondes depuis 1970, quelle que soit la précision interne de pandas (ns, ms, s)."""
+    idx = pd.DatetimeIndex(index)
+    if idx.tz is None:
+        idx = idx.tz_localize("UTC")
+    return np.asarray(idx.tz_convert("UTC").as_unit("s").asi8, dtype=np.int64)
+
+
 def to_rows(df: pd.DataFrame, n: int, decimals: int = 6) -> list[list]:
     """Format compact pour le navigateur : [temps (s), o, h, l, c, v]."""
     if df is None or df.empty:
         return []
     d = df.tail(n)
-    t = (d.index.astype("int64") // 10**9).astype(int)
+    t = epoch_s(d.index)
     out = []
     for ti, (o, h, l, c, v) in zip(t, d[["open", "high", "low", "close", "volume"]].to_numpy()):
         out.append([int(ti), round(float(o), decimals), round(float(h), decimals), round(float(l), decimals),
@@ -151,6 +159,13 @@ class MarketData:
             self.quote = stock_quote(self.sym)
             self.display = {300: yf_history(self.sym, "5m"), 900: yf_history(self.sym, "15m"),
                             3600: self.h1, 14400: resample(self.h1, "4h"), 86400: self.d1}
+        if self.kind == "stock" and self.quote and not self.d1.empty:
+            last = self.d1.iloc[-1]  # bourse fermée (soir, week-end) : on reprend la dernière séance
+            q = self.quote
+            q["hi"] = max(q["hi"], float(last["high"])) if q["hi"] != q["lo"] else float(last["high"])
+            q["lo"] = min(q["lo"], float(last["low"])) if q["hi"] != q["lo"] else float(last["low"])
+            if not q.get("volume_usd"):
+                q["volume_usd"] = float(last["volume"] * last["close"])
         if self.quote is None and not self.h1.empty:
             last = self.h1.tail(24)
             self.quote = {"price": float(last["close"].iloc[-1]), "open": float(last["open"].iloc[0]),

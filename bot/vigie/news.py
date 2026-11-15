@@ -139,6 +139,8 @@ def collect(people: list[tuple[str, str]], assets: set[str]) -> list[dict]:
         text = it["txt"] + " " + it.get("summary", "")
         it["asset"] = sentiment.detect_asset(text, assets)
         it["s"] = round(sentiment.score(it["txt"] + ". " + it.get("summary", "")[:200]), 2)
+        if not it["asset"] and it["cat"] != "official":
+            continue  # hors sujet pour les actifs suivis
         if it["asset"] and it["cat"] in ("stock", "crypto") and it["asset"] in assets:
             it["cat"] = "crypto" if it["asset"] in ("BTC", "ETH", "SOL", "BNB", "XRP") else it["cat"]
         out.append(it)

@@ -78,7 +78,9 @@ def fit_predict(df: pd.DataFrame, h: int, ctx: pd.Series | None = None, folds: i
     if cal is not None:
         p = float(cal.predict_proba(_logit(np.array([p])))[:, 1][0])
     edge = max(0.0, (sig_acc or acc) - 0.5)
-    conf = float(np.clip(0.35 + edge * 5 + abs(p - 0.5) * 0.9, 0.3, 0.92))
+    # la confiance combine la fiabilité mesurée hors échantillon et la netteté du signal :
+    # un modèle fiable qui annonce ~50 % reste peu confiant sur la direction
+    conf = float(np.clip(0.3 + edge * 3 + abs(p - 0.5) * 2, 0.3, 0.88))
     return HorizonResult(p=p, conf=conf, acc=acc, sig_acc=sig_acc, n_sig=int(len(sig)), oos=oos_df)
 
 
@@ -92,7 +94,8 @@ def backtest_curve(oos: pd.DataFrame, h: int, threshold: float = 0.55, max_point
     strat = np.where(step["p"] >= threshold, step["ret"] - 2 * FEE, 0.0)
     eq = 100 * np.cumprod(1 + strat)
     bh = 100 * np.cumprod(1 + step["ret"].to_numpy())
-    t = (step.index.astype("int64") // 10**9).astype(int)
+    from .market import epoch_s
+    t = epoch_s(step.index)
     idx = np.linspace(0, len(step) - 1, min(max_points, len(step))).astype(int)
     return ([[int(t[i]), round(float(eq[i]), 2)] for i in idx], [[int(t[i]), round(float(bh[i]), 2)] for i in idx])
 

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from . import extras, llm, market, model, news, telegram
+from . import extras, llm, market, model, news, telegram, translate
 from . import features as F
 from .util import OUT_DIR, STATE_DIR, load_people, load_settings, log, now_ms, read_json, setup_logging, write_json
 
@@ -209,6 +209,14 @@ def run() -> None:
     fresh = [it for it in items[:60] if it["id"] not in cache]
     if fresh and llm.available():
         llm.enrich_news(fresh[:20], proba)
+    todo = [it for it in fresh[:25] if not it.get("txt_en")]
+    if todo:  # sans IA (ou en complément) : traduction gratuite des titres
+        for it, fr_txt in zip(todo, translate.free_translate([it["txt"] for it in todo])):
+            if fr_txt and fr_txt.strip().lower() != it["txt"].strip().lower():
+                it["txt_en"], it["txt"] = it["txt"], fr_txt
+        for it in todo:
+            if it.get("txt_en") and it["id"] not in cache:
+                cache[it["id"]] = {k: it[k] for k in ("txt", "ai", "txt_en") if k in it}
     for it in items:
         if it["id"] in cache:
             it.update(cache[it["id"]])
@@ -237,6 +245,8 @@ def run() -> None:
     cal = []
     try:
         cal = sorted(extras.calendar_events() + extras.earnings(stocks), key=lambda e: e["t"])
+        for e in cal:
+            e["ev"] = translate.calendar_title(e["ev"])
     except Exception as e:
         log.warning("calendrier : %s", e)
     fng, vix = extras.crypto_fear_greed(), extras.vix()

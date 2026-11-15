@@ -74,6 +74,10 @@ def future_return(df: pd.DataFrame, h: int) -> pd.Series:
     return df["close"].shift(-h) / df["close"] - 1
 
 
+def fr(x: float, fmt: str = ".1f") -> str:
+    return format(x, fmt).replace(".", ",")
+
+
 def describe_technical(df: pd.DataFrame) -> tuple[float, str]:
     """Score technique entre -1 et 1 avec une explication en français."""
     c = df["close"]
@@ -94,7 +98,7 @@ def describe_volume(df: pd.DataFrame) -> tuple[float, str]:
     r6 = float(df["close"].iloc[-1] / df["close"].iloc[-7] - 1)
     pct = float(np.expm1(v.iloc[-6:].mean() - v.iloc[-54:-6].mean()) * 100)
     score = np.tanh(z / 2) * (1 if r6 >= 0 else -1)
-    return float(score), f"Volume {pct:+.0f} % vs moyenne récente, sur un mouvement {'haussier' if r6 >= 0 else 'baissier'} ({r6 * 100:+.1f} %)"
+    return float(score), f"Volume {pct:+.0f} % vs moyenne récente, sur un mouvement {'haussier' if r6 >= 0 else 'baissier'} ({fr(r6 * 100, '+.1f')} %)"
 
 
 def describe_volatility(df: pd.DataFrame) -> tuple[float, str]:
@@ -102,4 +106,4 @@ def describe_volatility(df: pd.DataFrame) -> tuple[float, str]:
     a, b = float(lr.tail(24).std()), float(lr.tail(168).std() or 1e-9)
     ratio = a / b if b else 1
     score = -np.tanh((ratio - 1) * 1.5) * 0.6
-    return float(score), f"Volatilité {'en hausse' if ratio > 1.1 else 'en baisse' if ratio < .9 else 'stable'} ({ratio:.1f}× la normale) : {'mouvements brusques possibles' if ratio > 1.1 else 'marché plus calme'}"
+    return float(score), f"Volatilité {'en hausse' if ratio > 1.1 else 'en baisse' if ratio < .9 else 'stable'} ({fr(ratio)}× la normale) : {'mouvements brusques possibles' if ratio > 1.1 else 'marché plus calme'}"

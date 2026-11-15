@@ -197,9 +197,18 @@ async function loadChart() {
   $("#chartMsg").hidden = t === tf; if (t !== tf) $("#chartMsg").textContent = "Actions : données gratuites différées d'environ 15 min, unité minimale 5 min.";
   $("#chartLoading").hidden = false;
   let data;
-  try { data = await D.getBars(a, t) } catch (e) { console.error(e); data = [] }
+  try { data = cleanBars(await D.getBars(a, t)) } catch (e) { console.error(e); data = [] }
   if (chartKey !== key) return;
   $("#chartLoading").hidden = true;
+  try { drawChart(a, t, data, key) } catch (e) { console.error(e); $("#chartMsg").hidden = false; $("#chartMsg").textContent = "Erreur d'affichage du graphique : rechargez la page." }
+}
+/* bougies propres : valeurs numériques, temps croissants et uniques */
+function cleanBars(d) {
+  const ok = (d || []).filter(b => b && [b.time, b.open, b.high, b.low, b.close].every(v => typeof v === "number" && isFinite(v))).map(b => ({ ...b, value: isFinite(b.value) ? b.value : 0 }));
+  ok.sort((x, y) => x.time - y.time);
+  return ok.filter((b, i) => i === 0 || b.time > ok[i - 1].time);
+}
+function drawChart(a, t, data, key) {
   if (!data.length) { $("#chartMsg").hidden = false; $("#chartMsg").textContent = "Données indisponibles pour le moment. Nouvel essai automatique dans 1 minute."; setTimeout(() => chartKey === key && (chartKey = "", loadChart()), 60000); return }
   bars = data;
   chart.applyOptions({ timeScale: { timeVisible: t < 86400, secondsVisible: t < 60 } });
@@ -263,7 +272,7 @@ async function applyCompare() {
   $("#cmpLegend").innerHTML = "";
   if (!cmpWith || cmpWith === current) return;
   const o = BY[cmpWith], want = chartKey; let d = [];
-  try { d = await D.getBars(o, effTf(BY[current])) } catch (e) { }
+  try { d = cleanBars(await D.getBars(o, effTf(BY[current]))) } catch (e) { }
   if (!chart || cmpS || want !== chartKey || !bars.length) return;
   cmpS = chart.addSeries(LC.LineSeries, { color: C.blue, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: o.s }, 0);
   const t0 = bars[0].time; cmpS.setData(d.filter(b => b.time >= t0).map(b => ({ time: b.time, value: b.close })));

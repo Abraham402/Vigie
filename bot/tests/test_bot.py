@@ -115,3 +115,19 @@ def test_close_at_and_labels():
     assert close_at(df, t) == df["close"].iloc[10]
     assert close_at(df, int(df.index[-1].timestamp() * 1000) + 10**7) is None
     assert fr_pct(64) == "HAUSSE 64 %" and fr_pct(30) == "BAISSE 70 %"
+
+
+def test_calendar_translation():
+    from vigie.translate import calendar_title
+    assert calendar_title("Core Retail Sales m/m") == "Ventes au détail hors automobile (sur un mois)"
+    assert calendar_title("Fed Chairman Warsh Speaks") == "Discours du président de la Fed (Warsh)"
+    assert calendar_title("Unknown Event") == "Unknown Event"
+
+
+def test_epoch_seconds_any_unit():
+    from vigie.market import epoch_s
+    for unit in ("ns", "ms", "s"):
+        idx = pd.DatetimeIndex(["2026-01-01 00:00:00", "2026-01-01 00:05:00"], tz="UTC").as_unit(unit)
+        assert list(epoch_s(idx)) == [1767225600, 1767225900]
+    rows = to_rows(synth(5).set_axis(pd.date_range("2026-01-01", periods=5, freq="5min", tz="UTC").as_unit("ms")), 5)
+    assert rows[1][0] - rows[0][0] == 300
