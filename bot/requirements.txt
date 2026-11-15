@@ -1,0 +1,8 @@
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+yfinance>=0.2.54
+feedparser>=6.0
+requests>=2.32
+vaderSentiment>=3.3.2
+pytest>=8.0

@@ -1,0 +1,22 @@
+{
+  "assets": [
+    ["BTC", "Bitcoin", "crypto"],
+    ["ETH", "Ethereum", "crypto"],
+    ["SOL", "Solana", "crypto"],
+    ["BNB", "BNB", "crypto"],
+    ["XRP", "XRP", "crypto"],
+    ["NVDA", "Nvidia", "stock"],
+    ["AAPL", "Apple", "stock"],
+    ["TSLA", "Tesla", "stock"],
+    ["MSFT", "Microsoft", "stock"],
+    ["SPY", "S&P 500 (ETF)", "stock"]
+  ],
+  "alerts": {
+    "proba_high": 65,
+    "proba_low": 35,
+    "min_confidence": 0.6,
+    "cooldown_hours": 12,
+    "news_min_sentiment": 0.6,
+    "morning_summary_hour_paris": 8
+  }
+}

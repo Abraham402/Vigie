@@ -17,7 +17,11 @@
     const c = new AbortController(), t = setTimeout(() => c.abort(), timeout);
     try { const r = await fetch(url, { signal: c.signal, cache: "no-store" }); if (!r.ok) throw new Error(r.status); return await r.json() } finally { clearTimeout(t) }
   }
-  const dataUrl = f => `data/${f}?t=${Math.floor(Date.now() / 60000)}`;
+  /* Les données du bot sont publiées sur la branche « data » du dépôt GitHub */
+  const OWNER = location.hostname.endsWith("github.io") ? location.hostname.split(".")[0] : "Abraham402";
+  const REPO = location.hostname.endsWith("github.io") && location.pathname.split("/")[1] ? location.pathname.split("/")[1] : "Vigie";
+  const DATA = new URLSearchParams(location.search).get("data") || `https://raw.githubusercontent.com/${OWNER}/${REPO}/data/`;
+  const dataUrl = f => `${DATA}${f}?t=${Math.floor(Date.now() / 60000)}`;
   async function binance(path) {
     for (const b of [restBase, ...REST.filter(x => x !== restBase)]) {
       try { const j = await getJSON(b + path, 8000); restBase = b; binanceOk = true; return j } catch (e) { }

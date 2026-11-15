@@ -1,0 +1,14 @@
+# Personnes surveillées par le bot : une ligne par personne.
+# Format : terme de recherche | libellé affiché dans l'application
+Federal Reserve chair | Président(e) de la Fed
+Treasury Secretary | Secrétaire au Trésor US
+Donald Trump | Président des États-Unis
+Elon Musk | PDG de Tesla
+Jensen Huang | PDG de Nvidia
+Tim Cook | PDG d'Apple
+Satya Nadella | PDG de Microsoft
+Christine Lagarde | Présidente de la BCE
+Larry Fink | PDG de BlackRock
+Michael Saylor | Fondateur de Strategy (bitcoin)
+Warren Buffett | Investisseur, Berkshire Hathaway
+Cathie Wood | Gérante, ARK Invest

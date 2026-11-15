@@ -1,0 +1,63 @@
+name: Bot Vigie
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # toutes les 15 minutes (GitHub peut décaler de quelques minutes)
+  workflow_dispatch:          # lancement manuel depuis l'onglet Actions
+  push:
+    branches: [main]
+    paths: ["config/**", "bot/vigie/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vigie-bot
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: bot/requirements.txt
+
+      - name: Installer les dépendances
+        run: pip install -r bot/requirements.txt
+
+      - name: Récupérer la mémoire du bot (branche data)
+        run: |
+          mkdir -p state out
+          if git fetch --depth=1 origin data 2>/dev/null; then
+            git show origin/data:state/state.json > state/state.json 2>/dev/null || echo "{}" > state/state.json
+          fi
+
+      - name: Lancer l'analyse
+        working-directory: bot
+        env:
+          VIGIE_OUT: ${{ github.workspace }}/out
+          VIGIE_STATE: ${{ github.workspace }}/state
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python -m vigie.main
+
+      - name: Publier les données (branche data, un seul commit écrasé à chaque passage)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          PUB="$RUNNER_TEMP/pub"; rm -rf "$PUB"; mkdir -p "$PUB/state"
+          cp out/*.json "$PUB/"; cp state/state.json "$PUB/state/"
+          cd "$PUB"
+          git init -q -b data
+          git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add -A
+          git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Données du $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data

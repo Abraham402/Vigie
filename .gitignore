@@ -1,1 +1,5 @@
 .agents/skills/design-taste-frontend/assets/
+out/
+state/
+bot/.pytest_cache/
+__pycache__/
