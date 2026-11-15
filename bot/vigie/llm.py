@@ -17,27 +17,40 @@ def available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY"))
 
 
-_no_thinking_ok = True
+MODELS = [GEMINI_MODEL] + [m for m in ("gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite") if m != GEMINI_MODEL]
+_no_thinking: dict[str, bool] = {}
+_down = False  # Gemini saturé pendant ce passage : on n'insiste pas
 
 
 def _gemini(key: str, prompt: str, max_tokens: int, temperature: float) -> str | None:
-    """Appel Gemini sans « réflexion » (plus rapide) ; repli automatique si le modèle refuse l'option."""
-    global _no_thinking_ok
-    for attempt in range(2):
-        cfg = {"temperature": temperature, "maxOutputTokens": max_tokens}
-        if _no_thinking_ok:
-            cfg["thinkingConfig"] = {"thinkingBudget": 0}
-        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-                          params={"key": key}, timeout=90,
-                          json={"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": cfg})
-        if r.ok:
-            parts = r.json()["candidates"][0]["content"].get("parts", [])
-            return "".join(p.get("text", "") for p in parts if not p.get("thought"))
-        if r.status_code == 400 and _no_thinking_ok:
-            _no_thinking_ok = False
-            continue
-        log.warning("Gemini : %s %s", r.status_code, r.text[:200])
+    """Essaie les modèles gratuits dans l'ordre ; sans « réflexion » quand le modèle l'accepte (plus rapide)."""
+    global _down
+    if _down:
         return None
+    for model in MODELS:
+        for _ in range(2):
+            cfg = {"temperature": temperature, "maxOutputTokens": max_tokens}
+            if _no_thinking.get(model, True):
+                cfg["thinkingConfig"] = {"thinkingBudget": 0}
+            try:
+                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                                  params={"key": key}, timeout=45,
+                                  json={"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": cfg})
+            except requests.RequestException as e:
+                log.warning("Gemini %s : %s", model, e)
+                break  # délai dépassé : modèle suivant
+            if r.ok:
+                try:
+                    parts = r.json()["candidates"][0]["content"].get("parts", [])
+                    return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+                except Exception:
+                    break
+            if r.status_code == 400 and _no_thinking.get(model, True):
+                _no_thinking[model] = False
+                continue
+            log.warning("Gemini %s : %s %s", model, r.status_code, r.text[:120].replace("\n", " "))
+            break  # 429 / 503 / 404 : modèle suivant
+    _down = True
     return None
 
 
