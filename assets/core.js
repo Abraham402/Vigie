@@ -394,7 +394,19 @@ function checkPA() {
 /* ---------------- notifications & Telegram (navigateur) ---------------- */
 function askNotif() { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().then(p => { CFG.notif = p === "granted"; saveCfg() }) }
 function notify(title, body) { try { if ("Notification" in window && Notification.permission === "granted") { if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(r => r.showNotification(title, { body, icon: "icons/icon-192.png" })); else new Notification(title, { body, icon: "icons/icon-192.png" }) } } catch (e) { } }
-async function sendTelegram(text) { if (!CFG.tgToken || !CFG.tgChat) return false; try { const r = await fetch(`https://api.telegram.org/bot${CFG.tgToken}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: CFG.tgChat, text }) }); return r.ok } catch (e) { return false } }
+/* Envoi Telegram depuis le navigateur : requête simple (GET), puis mode « no-cors » si le navigateur bloque la lecture de la réponse */
+async function sendTelegram(text) {
+  if (!CFG.tgToken || !CFG.tgChat) return false;
+  const url = `https://api.telegram.org/bot${CFG.tgToken}/sendMessage?chat_id=${encodeURIComponent(CFG.tgChat)}&text=${encodeURIComponent(text)}`;
+  try { const r = await fetch(url); const j = await r.json(); return j.ok ? true : (j.description || false) }
+  catch (e) { try { await fetch(url, { mode: "no-cors" }); return "envoyé (sans confirmation)" } catch (e2) { return false } }
+}
+/* Identifiant de discussion : demandé à Telegram, sinon repris de la mémoire du bot */
+async function findTgChat(token) {
+  try { const j = await (await fetch(`https://api.telegram.org/bot${token}/getUpdates`)).json(); const u = (j.result || []).reverse().find(x => x.message && x.message.chat && x.message.chat.type === "private"); if (u) return String(u.message.chat.id) } catch (e) { }
+  try { const owner = location.hostname.endsWith("github.io") ? location.hostname.split(".")[0] : "Abraham402", repo = location.pathname.split("/")[1] || "Vigie"; const st = await (await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/data/state/state.json?t=${Date.now()}`)).json(); if (st.tg_chat) return String(st.tg_chat) } catch (e) { }
+  return null;
+}
 
 /* ---------------- initiés, sources, personnes ---------------- */
 function renderInsiders() { const rows = D.insiders || []; $("#insiders").innerHTML = rows.length ? `<thead><tr><th>Date</th><th>Qui</th><th>Type</th><th>Actif</th><th>Opération</th><th class="r">Montant</th></tr></thead><tbody>` + rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="muted">${esc(r[2])}</td><td><b>${esc(r[3])}</b></td><td class="${/achat/i.test(r[4]) ? "up" : "down"}">${esc(r[4])}</td><td class="r num">${esc(r[5])}</td></tr>`).join("") + "</tbody>" : `<tr><td><div class="empty">Aucune transaction récente trouvée.</div></td></tr>` }
@@ -642,8 +654,14 @@ function openSettings() {
   <div class="btn-row"><button class="btn" id="sExp">Exporter</button><label class="btn" style="cursor:pointer">Importer<input type="file" id="sImp" accept="application/json" hidden></label></div>
   </div>`);
   $("#sSave").onclick = () => { CFG.gemini = $("#sGem").value.trim(); CFG.geminiModel = $("#sGemM").value.trim() || "gemini-flash-latest"; CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); saveCfg(); aiHist = []; toast("Réglages enregistrés"); renderAiHead() };
-  $("#sTest").onclick = async () => { CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim(); saveCfg(); toast(await sendTelegram("✅ Vigie est bien connecté à votre Telegram.") ? "Message envoyé sur Telegram ✓" : "Échec : vérifiez le jeton et le chat id") };
-  $("#sFind").onclick = async () => { const tk = $("#sTgT").value.trim(); if (!tk) return toast("Collez d'abord le jeton du bot"); try { const j = await (await fetch(`https://api.telegram.org/bot${tk}/getUpdates`)).json(); const u = (j.result || []).reverse().find(x => x.message && x.message.chat && x.message.chat.type === "private"); if (u) { $("#sTgC").value = u.message.chat.id; toast("Chat id trouvé ✓ Pensez à enregistrer") } else toast("Envoyez d'abord /start à votre bot dans Telegram, puis réessayez") } catch (e) { toast("Jeton invalide ou connexion impossible") } };
+  $("#sTest").onclick = async () => {
+    CFG.tgToken = $("#sTgT").value.trim(); CFG.tgChat = $("#sTgC").value.trim();
+    if (!CFG.tgToken) return toast("Collez le jeton du bot");
+    if (!CFG.tgChat) { const id = await findTgChat(CFG.tgToken); if (id) { CFG.tgChat = id; $("#sTgC").value = id } else return toast("Chat id manquant : envoyez /start au bot, puis « Trouver mon chat id »") }
+    saveCfg(); const r = await sendTelegram("✅ Vigie est bien connecté à votre Telegram.");
+    toast(r === true ? "Message envoyé sur Telegram ✓" : r ? "Message " + r + " : regardez Telegram" : "Échec : vérifiez le jeton (sans espace) et le chat id");
+  };
+  $("#sFind").onclick = async () => { const tk = $("#sTgT").value.trim(); if (!tk) return toast("Collez d'abord le jeton du bot"); toast("Recherche…"); const id = await findTgChat(tk); if (id) { $("#sTgC").value = id; CFG.tgToken = tk; CFG.tgChat = id; saveCfg(); toast("Chat id trouvé et enregistré ✓") } else toast("Introuvable : envoyez /start à votre bot dans Telegram, puis réessayez") };
   $("#sNotif").onclick = () => { askNotif(); setTimeout(() => notify("Vigie", "Les notifications fonctionnent ✓"), 1200) };
   $("#sExp").onclick = () => { const b = new Blob([JSON.stringify({ pf, pAlerts, learn: LS.get("vigie-learn", null) }, null, 1)], { type: "application/json" }); const u = URL.createObjectURL(b), l = document.createElement("a"); l.href = u; l.download = `vigie-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 1000) };
   $("#sImp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const j = JSON.parse(t); if (j.pf) LS.set(MK("vigie-pf"), j.pf); if (j.pAlerts) LS.set(MK("vigie-palerts"), j.pAlerts); if (j.learn) LS.set("vigie-learn", j.learn); toast("Sauvegarde importée"); setTimeout(() => location.reload(), 600) } catch (err) { toast("Fichier invalide") } }) };
