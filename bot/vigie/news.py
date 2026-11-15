@@ -24,7 +24,8 @@ FEEDS = [
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069", "cnbc", "CNBC", "stock"),
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "cnbc", "CNBC", "stock"),
     ("https://feeds.content.dowjones.io/public/rss/mw_topstories", "marketwatch", "MarketWatch", "stock"),
-    ("https://finance.yahoo.com/news/rssindex", "yahoo", "Yahoo Finance", "stock"),
+    ("https://feeds.finance.yahoo.com/rss/2.0/headline?s=NVDA,AAPL,TSLA,MSFT,SPY&region=US&lang=en-US", "yahoo", "Yahoo Finance", "stock"),
+    ("https://feeds.finance.yahoo.com/rss/2.0/headline?s=BTC-USD,ETH-USD,SOL-USD&region=US&lang=en-US", "yahoo", "Yahoo Finance", "crypto"),
 ]
 GNEWS_QUERIES = ["bitcoin OR ethereum OR crypto", "stock market OR Wall Street OR S&P 500", "Federal Reserve rates"]
 REDDIT = [("wallstreetbets", "stock"), ("CryptoCurrency", "crypto"), ("stocks", "stock")]
@@ -99,7 +100,7 @@ def fetch_google_news(queries: list[str], cat: str = "stock", who: dict | None =
 def fetch_reddit(max_age_h: float = 24) -> list[dict]:
     items, cutoff = [], (time.time() - max_age_h * 3600) * 1000
     for sub, cat in REDDIT:
-        r = http_get(f"https://www.reddit.com/r/{sub}/top.json", params={"t": "day", "limit": 15}, timeout=12, retries=1)
+        r = http_get(f"https://www.reddit.com/r/{sub}/top.json", params={"t": "day", "limit": 15}, timeout=12, retries=0)
         if r is None:
             # repli sur le flux RSS public
             for e in _parse(f"https://www.reddit.com/r/{sub}/top/.rss?t=day")[:10]:

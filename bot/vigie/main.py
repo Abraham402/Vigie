@@ -165,8 +165,12 @@ def run() -> None:
     telegram.resolve_chat(state)
 
     # 1. données de marché (en parallèle)
+    # crypto en parallèle (Binance) ; actions une par une (le cache interne de yfinance n'aime pas le parallélisme)
     with ThreadPoolExecutor(max_workers=5) as ex:
-        list(ex.map(lambda m: m.fetch(), assets))
+        list(ex.map(lambda m: m.fetch(), [m for m in assets if m.kind == "crypto"]))
+    for m in assets:
+        if m.kind != "crypto":
+            m.fetch()
     mds = {m.sym: m for m in assets if m.quote}
     for m in assets:
         if not m.quote:
