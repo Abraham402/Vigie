@@ -1,4 +1,4 @@
-window.VIGIE_VERSION = "8 · suivi Telegram";
+window.VIGIE_VERSION = "9 · suivi Telegram lisible";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -782,13 +782,23 @@ function pfSnapshot() {
   return { v: 1, t: Date.now(), freq: CFG.tgReport || 0, cap: pf.cap, cash: +pf.cash.toFixed(2), pos };
 }
 let syncTimer = null;
+function syncText(snap) {
+  const n = (v, d) => nf(d).format(v), ex = h => h.replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+  const freq = { 60: "toutes les heures", 120: "toutes les 2 heures", 240: "toutes les 4 heures", 720: "matin et soir" }[snap.freq] || "désactivé";
+  const rows = Object.entries(snap.pos).map(([s, [q, cost, sl, tp]]) => {
+    const a = BY[s], unit = a && a.t === "stock" ? (q > 1 ? "actions" : "action") : (q > 1 ? "unités" : "unité");
+    return `• <b>${s}</b> : ${n(q, q < 10 ? 2 : 0)} ${unit}, achat ${n(cost, 0)} $` + (sl ? ` · stop-loss à ${fp(sl)} $` : "") + (tp ? ` · objectif ${fp(tp)} $` : "");
+  });
+  const data = btoa(JSON.stringify(snap)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `📌 <b>Votre portefeuille Vigie</b> · suivi ${freq}\n💰 Liquidités : ${n(snap.cash, 0)} $\n${rows.join("\n") || "Aucune position ouverte."}\n\nℹ️ Ce message permet au bot de suivre votre portefeuille fictif. Il se met à jour tout seul : ne le supprimez pas.\n<a href="https://abraham402.github.io/Vigie/#s=${data}">Ouvrir Vigie</a>`;
+}
 async function syncPfToBot(now) {
   if (D.mode !== "live" || !CFG.tgToken || !CFG.tgChat) return false;
   if (!now) { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncPfToBot(true), 4000); return }
-  const text = "📌 Copie de votre portefeuille Vigie pour le bot (ne pas supprimer, mise à jour automatique)\n#VIGIE " + JSON.stringify(pfSnapshot());
+  const text = syncText(pfSnapshot()), common = { chat_id: CFG.tgChat, text, parse_mode: "HTML", disable_web_page_preview: true };
   try {
-    if (CFG.tgSyncId) { const r = await tgCall("editMessageText", { chat_id: CFG.tgChat, message_id: CFG.tgSyncId, text }); if (r.ok || /not modified/i.test(r.description || "")) return true }
-    const r = await tgCall("sendMessage", { chat_id: CFG.tgChat, text, disable_notification: true });
+    if (CFG.tgSyncId) { const r = await tgCall("editMessageText", { ...common, message_id: CFG.tgSyncId }); if (r.ok || /not modified/i.test(r.description || "")) return true }
+    const r = await tgCall("sendMessage", { ...common, disable_notification: true });
     if (!r.ok) return false;
     CFG.tgSyncId = r.result.message_id; saveCfg();
     await tgCall("pinChatMessage", { chat_id: CFG.tgChat, message_id: CFG.tgSyncId, disable_notification: true });

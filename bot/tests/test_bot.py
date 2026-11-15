@@ -152,3 +152,12 @@ def test_portfolio_report():
     txt2, _ = portfolio.build_report(snap, {"BTC": 60000, "NVDA": 153}, {}, mem, dt.datetime(2026, 11, 16, 16, 0))
     assert "Depuis le dernier point" in txt2
     assert portfolio.parse("rien") is None
+
+
+def test_portfolio_hidden_link():
+    import base64, json
+    from vigie import portfolio
+    snap = {"v": 1, "freq": 60, "cap": 10000, "cash": 100, "pos": {"ETH": [1.5, 3000, 0, 0]}}
+    data = base64.urlsafe_b64encode(json.dumps(snap).encode()).decode().rstrip("=")
+    assert portfolio.parse_url(f"https://abraham402.github.io/Vigie/#s={data}") == snap
+    assert portfolio.parse_url("https://example.com") is None

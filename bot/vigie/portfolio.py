@@ -6,6 +6,7 @@ avec getChat et envoie un point au rythme demandé (freq en minutes).
 """
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import json
 import os
@@ -26,10 +27,26 @@ def read_pinned() -> dict | None:
         return None
     try:
         r = requests.get(f"https://api.telegram.org/bot{token}/getChat", params={"chat_id": chat}, timeout=15).json()
-        txt = ((r.get("result") or {}).get("pinned_message") or {}).get("text", "")
-        return parse(txt)
+        msg = (r.get("result") or {}).get("pinned_message") or {}
+        for ent in msg.get("entities") or []:  # données cachées dans le lien « Ouvrir Vigie »
+            snap = parse_url(ent.get("url", ""))
+            if snap:
+                return snap
+        return parse(msg.get("text", ""))
     except Exception as e:
         log.warning("lecture du portefeuille épinglé : %s", e)
+        return None
+
+
+def parse_url(url: str) -> dict | None:
+    m = re.search(r"#s=([A-Za-z0-9_-]+)", url or "")
+    if not m:
+        return None
+    try:
+        raw = base64.urlsafe_b64decode(m.group(1) + "=" * (-len(m.group(1)) % 4))
+        snap = json.loads(raw.decode("utf-8"))
+        return snap if isinstance(snap, dict) and "pos" in snap else None
+    except Exception:
         return None
 
 
