@@ -1,24 +1,28 @@
 name: Bot Vigie
 
+# Le bot reste allumé ~5 h 45 et fait un passage toutes les 15 minutes, puis se relance
+# lui-même. Les lancements planifiés de GitHub (peu fiables sur les petits dépôts)
+# servent seulement de filet de sécurité si la chaîne s'interrompt.
 on:
   schedule:
-    - cron: "*/15 * * * *"   # toutes les 15 minutes (GitHub peut décaler de quelques minutes)
-  workflow_dispatch:          # lancement manuel depuis l'onglet Actions
+    - cron: "7 */3 * * *"
+  workflow_dispatch:
   push:
     branches: [main]
-    paths: ["config/**", "bot/vigie/**"]
+    paths: ["config/**", "bot/vigie/**", ".github/workflows/bot.yml"]
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: vigie-bot
-  cancel-in-progress: false
+  cancel-in-progress: true   # un nouveau lancement remplace l'ancien (nouveau code pris en compte)
 
 jobs:
   analyse:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 358
     steps:
       - uses: actions/checkout@v4
 
@@ -38,8 +42,7 @@ jobs:
             git show origin/data:state/state.json > state/state.json 2>/dev/null || echo "{}" > state/state.json
           fi
 
-      - name: Lancer l'analyse
-        working-directory: bot
+      - name: Passages toutes les 15 minutes (~5 h 45)
         env:
           VIGIE_OUT: ${{ github.workspace }}/out
           VIGIE_STATE: ${{ github.workspace }}/state
@@ -47,17 +50,31 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python -m vigie.main
-
-      - name: Publier les données (branche data, un seul commit écrasé à chaque passage)
-        env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
-          PUB="$RUNNER_TEMP/pub"; rm -rf "$PUB"; mkdir -p "$PUB/state"
-          cp out/*.json "$PUB/"; cp state/state.json "$PUB/state/"
-          cd "$PUB"
-          git init -q -b data
-          git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add -A
-          git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Données du $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
+          START=$(date +%s)
+          LIMIT=$((345 * 60))
+          publish() {
+            PUB="$RUNNER_TEMP/pub"; rm -rf "$PUB"; mkdir -p "$PUB/state"
+            cp out/*.json "$PUB/" && cp state/state.json "$PUB/state/" || return 0
+            ( cd "$PUB" && git init -q -b data \
+              && git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add -A \
+              && git -c user.name="vigie-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Données du $(date -u +%Y-%m-%dT%H:%MZ)" \
+              && git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data ) || echo "publication échouée, nouvel essai au prochain passage"
+          }
+          while true; do
+            echo "::group::Passage $(date -u +%H:%M) UTC"
+            (cd bot && timeout 12m python -m vigie.main) || echo "passage en erreur, on continue"
+            publish
+            echo "::endgroup::"
+            NOW=$(date +%s)
+            NEXT=$(( (NOW / 900 + 1) * 900 ))          # prochain quart d'heure
+            if [ $((NEXT - START)) -ge $LIMIT ]; then break; fi
+            sleep $((NEXT - NOW))
+          done
+
+      - name: Se relancer pour les 6 prochaines heures
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run bot.yml --ref main --repo "$GITHUB_REPOSITORY"
