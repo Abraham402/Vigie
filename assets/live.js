@@ -97,7 +97,8 @@
       return () => { closed = true; try { ws && ws.close() } catch (e) { } };
     },
     async refresh(notify) {
-      const [mk, an, fd] = await Promise.all(["market.json", "analysis.json", "feed.json"].map(f => getJSON(dataUrl(f)).catch(() => null)));
+      const [mk, an, fd, au] = await Promise.all(["market.json", "analysis.json", "feed.json", "auto.json"].map(f => getJSON(dataUrl(f)).catch(() => null)));
+      if (au) this.auto = au;
       if (mk && mk.assets) {
         this._market = mk.assets;
         this.assets.forEach(a => { const m = mk.assets[a.s]; if (!m) return; if (a.t === "stock" || !wsOpen) { a.price = m.price; a.open = m.open; a.hi = m.hi; a.lo = m.lo; a.volTxt = volTxt(m.volume_usd); a.delayed = a.t === "stock" || !binanceOk } a.spark = (m.spark || []).slice(); if (a.spark.length) a.spark[a.spark.length - 1] = a.price });

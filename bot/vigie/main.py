@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from . import daytrader, extras, llm, market, model, news, portfolio, telegram, translate
+from . import autotrader, daytrader, extras, llm, market, model, news, portfolio, telegram, translate
 from . import features as F
 from .util import OUT_DIR, STATE_DIR, load_people, load_settings, log, now_ms, read_json, setup_logging, write_json
 
@@ -309,6 +309,14 @@ def run() -> None:
         portfolio.maybe_send(state, mds, proba)
     except Exception as e:
         log.warning("point portefeuille : %s", e)
+
+    # 7 ter. robot trader fictif (Vigie Auto)
+    auto_out = None
+    try:
+        auto_out = autotrader.run(state, mds, proba, state.get("pf_snap"))
+    except Exception as e:
+        log.exception("robot : %s", e)
+    write_json(OUT_DIR / "auto.json", auto_out or {"active": False, "cmd": state.get("auto_cmd"), "returned": state.get("auto_returned")})
 
     # 7 bis. résumé du matin
     summary = state.get("summary")

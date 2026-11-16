@@ -1,4 +1,4 @@
-window.VIGIE_VERSION = "12 · day trader";
+window.VIGIE_VERSION = "13 · robot Vigie Auto";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -884,6 +884,7 @@ let posSel = null, posTf = LS.get("vigie-ptf", 3600), posChart, posSeries, posVo
 function posEffTf(a) { return D.mode === "live" && a.t === "stock" && posTf < 300 ? 300 : posTf }
 function renderPosChart() {
   const card = $("#posChartCard"); if (!card) return;
+  if (typeof pfMode !== "undefined" && pfMode === "robot") { card.hidden = true; return }
   const held = Object.keys(pf.pos).filter(s => BY[s]);
   if (!held.length) { card.hidden = true; if (posUnsub) { posUnsub(); posUnsub = null } posKey = ""; return }
   card.hidden = false;

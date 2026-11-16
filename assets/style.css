@@ -420,3 +420,11 @@ body.learn .qt{display:inline-block}
 .odds b{display:block;font-size:18px}
 .odds small{color:var(--muted);font-size:11px}
 .oddsbar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:8px}
+
+.pf-switch{align-self:flex-start;margin-bottom:2px}
+.pf-switch button{padding:8px 14px;font-size:13px}
+.strats{display:grid;gap:6px}
+@media (min-width:900px){.strats{grid-template-columns:1fr 1fr}}
+.strat{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px;background:var(--bg);cursor:pointer}
+.strat input{margin-top:3px;accent-color:#9B8AFB;width:16px;height:16px;flex:none}
+.strat small{color:var(--muted);line-height:1.4}

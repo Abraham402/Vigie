@@ -202,3 +202,55 @@ def test_atr_and_congress_parser():
     assert atr(df.head(5)) is None
     from vigie import ptr_house
     assert ptr_house.iso("8/21/2026") == "2026-08-21"
+
+
+def _md(sym, kind, closes, vols=None, n_h1=50):
+    from types import SimpleNamespace
+    idx = pd.date_range(end=pd.Timestamp.utcnow().normalize() - pd.Timedelta(days=1), periods=len(closes), freq="D", tz="UTC")
+    c = np.array(closes, float)
+    d1 = pd.DataFrame({"open": np.r_[c[0], c[:-1]], "high": c * 1.01, "low": c * 0.99, "close": c,
+                       "volume": np.array(vols if vols is not None else [1000.0] * len(c), float)}, index=idx)
+    h1 = synth(n_h1)
+    h1["close"] = c[-1]; h1["high"] = c[-1] * 1.001; h1["low"] = c[-1] * 0.999
+    return SimpleNamespace(sym=sym, name=sym, kind=kind, d1=d1, h1=h1, quote={"price": float(c[-1])})
+
+
+def test_autotrader_breakout_signal_and_lifecycle(monkeypatch):
+    from vigie import autotrader, telegram
+    sent = []
+    monkeypatch.setattr(telegram, "send", lambda txt, silent=False: sent.append(txt) or True)
+    closes = [100 + np.sin(i / 3) for i in range(80)] + [110.0]
+    md = _md("BTC", "crypto", closes)
+    sigs = autotrader.signals(md, None)
+    assert any(x["strat"] == "breakout" for x in sigs)
+    br = next(x for x in sigs if x["strat"] == "breakout")
+    assert br["stop"] < 110 < br["target"]
+    state = {}
+    snap = {"auto": {"id": "c1", "action": "start", "budget": 3000, "strats": ["breakout", "dca"], "risk": 1, "report": 60}}
+    out = autotrader.run(state, {"BTC": md}, {}, snap)
+    assert out["active"] and state["auto_cmd"] == "c1"
+    assert any(p["strat"] == "breakout" for p in out["pos"])
+    assert any(p["strat"] == "dca" for p in out["pos"])
+    assert abs(out["equity"] - 3000) < 30          # frais seulement
+    assert any("Vigie Auto" in t for t in sent)
+    # pas de second achat sur le même signal
+    n = len(out["pos"]); out = autotrader.run(state, {"BTC": md}, {}, snap); assert len(out["pos"]) == n
+    # stop-loss touché
+    md.quote["price"] = br["stop"] * 0.98; md.h1["low"] = br["stop"] * 0.97
+    out = autotrader.run(state, {"BTC": md}, {}, snap)
+    assert not any(p["strat"] == "breakout" for p in out["pos"])
+    assert out["board"][0]["trades"] + out["board"][-1]["trades"] >= 1
+    # arrêt : tout est vendu et l'argent rendu
+    out = autotrader.run(state, {"BTC": md}, {}, {"auto": {"id": "c2", "action": "stop"}})
+    assert not out["active"] and state["auto_returned"]["id"] == "c2" and state["auto_returned"]["amount"] > 2800
+
+
+def test_autotrader_risk_sizing_and_regime():
+    from vigie import autotrader
+    acc = autotrader.new_account({"budget": 10000, "strats": ["breakout"], "risk": 1})
+    assert acc["cash"] == 10000 and acc["risk"] == 1.0
+    down = [100 * 0.99 ** i for i in range(250)]
+    md = _md("BTC", "crypto", down)
+    reg = autotrader.crypto_regime({"BTC": md, "ETH": _md("ETH", "crypto", down)})
+    assert reg["zone"] == "défensif"
+    assert autotrader.market_open("crypto")

@@ -7,6 +7,20 @@
       "skillPath": "skills/.curated/backtesting-trading-strategies/SKILL.md",
       "computedHash": "bb24d71c43d4a8f301fa1b2cef5f687e38aa7ccc3715fd2219d906ff0664c5f7"
     },
+    "breakout-trade-planner": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/breakout-trade-planner/SKILL.md",
+      "computedHash": "c5c1fea16d9c9aa29e595769ebf0394bad78c99a53ef131fa93453f0f6795681"
+    },
+    "crypto-regime-analyzer": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/crypto-regime-analyzer/SKILL.md",
+      "computedHash": "78521440f8a2f9c1b8292a0289d1603af2dd3fb3e0462b69d04ed3e4689934fd"
+    },
     "design-taste-frontend": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",
@@ -43,6 +57,20 @@
       "skillPath": ".github/skills/lightweight-charts/SKILL.md",
       "computedHash": "1c7658cf601b98c2f0c0be78c13d63aedba7aa63e48754634cee97e816856304"
     },
+    "mean-reversion": {
+      "source": "agiprolabs/claude-trading-skills",
+      "commit": "981e1d736cdc02bdc1c55c74ec9224e956414706",
+      "sourceType": "github",
+      "skillPath": "skills/mean-reversion/SKILL.md",
+      "computedHash": "c3ba4a77ac7a93b06e9a8c139f775816141340d755064cfe773d0d79cf877740"
+    },
+    "position-sizer": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/position-sizer/SKILL.md",
+      "computedHash": "ec14170d1069bc8d06e913b17640c38e3f2aade52919e54a9f799d6adcedb14d"
+    },
     "pytest-coverage": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
@@ -54,6 +82,13 @@
       "sourceType": "github",
       "skillPath": "skills/security-and-hardening/SKILL.md",
       "computedHash": "9bfc78e1ee2e23f3d226f610d8ed8e0cf6fb4f7e90a44db0a41b636735a24767"
+    },
+    "stockbee-momentum-burst-screener": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/stockbee-momentum-burst-screener/SKILL.md",
+      "computedHash": "a828e67c8b7ca293eeaa18fc1d8851cec746a9698cf5cd309a51ff7868527540"
     },
     "telegram-bot": {
       "source": "claude-office-skills/skills",
@@ -101,6 +136,20 @@
       "sourceType": "github",
       "skillPath": "skills/binance-web3/trading-signal/SKILL.md",
       "computedHash": "c531840bb4016e871b58a0312ceda442278b23cc49ac14300b3467e8cbddcf0f"
+    },
+    "uptrend-analyzer": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/uptrend-analyzer/SKILL.md",
+      "computedHash": "62520333138df84f81bc58b60f419c60bb212321bfb92e3c6171495a228d61ed"
+    },
+    "vcp-screener": {
+      "source": "tradermonty/claude-trading-skills",
+      "commit": "60399452891edf47c1da5ce93c7664b31e3b001e",
+      "sourceType": "github",
+      "skillPath": "skills/vcp-screener/SKILL.md",
+      "computedHash": "50600504138d33545d3dc304fecef0125b7988c07cf9426be39ce1a869dba9c4"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
