@@ -46,6 +46,9 @@ const GLOSS = {
   "Initiés": ["Dirigeants et administrateurs d'une entreprise. Leurs achats et ventes d'actions sont publics (formulaire SEC Form 4).", "m7"],
   "Fed": ["Banque centrale américaine. Ses décisions sur les taux d'intérêt font bouger tous les marchés, crypto comprise.", "m7"],
   "Frais": ["Commission prélevée à chaque achat et vente (0,1 % simulé ici, comme sur Binance). Sur beaucoup de trades, elle pèse lourd.", "m1"],
+  "Scanner": ["Outil qui passe en revue des dizaines de graphiques et signale ceux qui forment une figure connue (cassure, drapeau, survente). Un signal n'est pas une prédiction : il dit « regardez ça », pas « achetez ».", "m3"],
+  "ATR": ["Average True Range : l'amplitude moyenne d'une bougie sur 14 périodes. Un stop placé à 1,5 × ATR sous le prix laisse au cours sa respiration normale sans sortir trop tôt.", "m5"],
+  "Time Machine": ["Simulation de Monte-Carlo : on rejoue des milliers de fois les mouvements passés de l'actif pour estimer les chances que votre objectif soit atteint avant votre stop-loss.", "m6"],
   "Journal de trading": ["Carnet où l'on note chaque trade, sa raison et son résultat. C'est l'outil n°1 des pros pour progresser.", "m8"]
 };
 

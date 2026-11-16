@@ -61,6 +61,41 @@
       "skillPath": "telegram-bot/SKILL.md",
       "computedHash": "7cb6a22cc8e44654ddab29ee33e577a5b8c82af51abb765f95ad6bf2902d9c3d"
     },
+    "trader-exit": {
+      "source": "Jakeschincariol/day-trader-skill",
+      "commit": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+      "sourceType": "github",
+      "skillPath": "trader-exit/SKILL.md",
+      "computedHash": "9abe9bb672405dd95887ce4ba3a103e8029f063cb05c4e687eb289a03bda5508"
+    },
+    "trader-pelosi": {
+      "source": "Jakeschincariol/day-trader-skill",
+      "commit": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+      "sourceType": "github",
+      "skillPath": "trader-pelosi/SKILL.md",
+      "computedHash": "83871cd7cfd1b8d6ddb8a70156791a047443181fba6c13b2861ed2a0c443e894"
+    },
+    "trader-risk": {
+      "source": "Jakeschincariol/day-trader-skill",
+      "commit": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+      "sourceType": "github",
+      "skillPath": "trader-risk/SKILL.md",
+      "computedHash": "7cb32b5c1fb5cfd4c2208385c0bd726599db87afe243511921e8360afe23d20d"
+    },
+    "trader-scanner": {
+      "source": "Jakeschincariol/day-trader-skill",
+      "commit": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+      "sourceType": "github",
+      "skillPath": "trader-scanner/SKILL.md",
+      "computedHash": "544126ae87853ae035587156dbf912d8146bd1cfc23ceb107aa232229c26540b"
+    },
+    "trader-timemachine": {
+      "source": "Jakeschincariol/day-trader-skill",
+      "commit": "3d0f4ef6986f4984b7c6bd46f7ff4f87744c3abd",
+      "sourceType": "github",
+      "skillPath": "trader-timemachine/SKILL.md",
+      "computedHash": "19eca0ec94a78e2ee29e9ddf9185330269f4b9f1eaa8c0c74e8f19466cf8dc7d"
+    },
     "trading-signal": {
       "source": "binance/binance-skills-hub",
       "sourceType": "github",

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from . import extras, llm, market, model, news, portfolio, telegram, translate
+from . import daytrader, extras, llm, market, model, news, portfolio, telegram, translate
 from . import features as F
 from .util import OUT_DIR, STATE_DIR, load_people, load_settings, log, now_ms, read_json, setup_logging, write_json
 
@@ -241,11 +241,23 @@ def run() -> None:
     stocks = [m.sym for m in mds.values() if m.kind == "stock"]
     ins = []
     try:
-        ins = extras.insiders(stocks) + extras.congress(stocks)
-        ins.sort(key=lambda r: r[0], reverse=True)
-        ins = [[extras.fr_date(dt.date.fromisoformat(r[0])), *r[1:]] for r in ins[:30]]
+        raw = [[extras.fr_date(dt.date.fromisoformat(r[0])), *r[1:], r[0]] for r in extras.insiders(stocks)]
+        raw += daytrader.congress(state)  # déclarations officielles du Congrès (lecteur trader-pelosi)
+        raw.sort(key=lambda r: r[-1] or "", reverse=True)
+        ins = [r[:-1] for r in raw[:40]]
     except Exception as e:
         log.warning("initiés : %s", e)
+    scanner = []
+    try:
+        scanner = daytrader.scan(mds, state)
+    except Exception as e:
+        log.warning("scanner : %s", e)
+    atrs = {}
+    for s_, m_ in mds.items():
+        try:
+            atrs[s_] = {"d": daytrader.atr(m_.d1), "h": daytrader.atr(m_.h1)}
+        except Exception:
+            pass
     cal = []
     try:
         cal = sorted(extras.calendar_events() + extras.earnings(stocks), key=lambda e: e["t"])
@@ -312,13 +324,13 @@ def run() -> None:
     write_json(OUT_DIR / "market.json", {"generated": gen, "list": [[m.sym, m.name, m.kind] for m in mds.values()],
                                          "assets": {s: m.browser_payload() for s, m in mds.items()}})
     write_json(OUT_DIR / "analysis.json", {
-        "generated": gen, "proba": proba, "factors": factors, "backtest": backtest, "sentiment": mood, "summary": summary,
+        "generated": gen, "proba": proba, "factors": factors, "backtest": backtest, "sentiment": mood, "summary": summary, "atr": atrs,
         "status": {"last_run": gen, "telegram": telegram.configured(), "gemini": llm.available(), "errors": errors[:10],
                    "binance": market._binance_base, "duration_s": round(time.time() - t0)}})
     keys = ("id", "t", "src", "srcName", "cat", "who", "txt", "url", "asset", "s", "p", "ai")
     write_json(OUT_DIR / "feed.json", {
         "generated": gen, "news": [{k: it[k] for k in keys if it.get(k) is not None} for it in items[:90]],
-        "alerts": state["alerts_hist"], "insiders": ins, "calendar": cal, "sources": sources,
+        "alerts": state["alerts_hist"], "insiders": ins, "calendar": cal, "sources": sources, "scanner": scanner,
         "people": [label for _, label in people]})
     write_json(STATE_DIR / "state.json", state)
     log.info("Terminé en %.0f s (%d actifs analysés, %d actus, %d erreurs)", time.time() - t0, len(proba), len(items), len(errors))

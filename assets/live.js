@@ -104,11 +104,11 @@
       }
       if (an) {
         this.proba = {}; Object.entries(an.proba || {}).forEach(([s, P]) => this.proba[s] = P.map(([p, c]) => ({ p, c })));
-        this.factors = an.factors || {}; this._bt = an.backtest || {}; this.sentiment = an.sentiment ?? 50; this.summary = an.summary || null; this.status = an.status || {};
+        this.factors = an.factors || {}; this.atr = an.atr || {}; this._bt = an.backtest || {}; this.sentiment = an.sentiment ?? 50; this.summary = an.summary || null; this.status = an.status || {};
       }
       if (fd) {
         const known = new Set(this.news.map(n => n.id)), fresh = notify ? (fd.news || []).filter(n => !known.has(n.id)) : [];
-        this.alerts = fd.alerts || []; this.insiders = fd.insiders || []; this.calendar = fd.calendar || []; this.sources = fd.sources || []; this.people = fd.people || null;
+        this.alerts = fd.alerts || []; this.scanner = fd.scanner || []; this.insiders = fd.insiders || []; this.calendar = fd.calendar || []; this.sources = fd.sources || []; this.people = fd.people || null;
         if (fresh.length && fresh.length <= 3) { this.news = (fd.news || []).filter(n => known.has(n.id)); fresh.reverse().forEach(n => window.dispatchEvent(new CustomEvent("vigie:news", { detail: n }))) }
         else this.news = fd.news || [];
       }

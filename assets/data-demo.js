@@ -78,7 +78,15 @@ function genBars(a,tf,n=240){
   return arr.map((c,i)=>{c*=k;const o=prev;prev=c;const hi=Math.max(o,c)*(1+Math.abs(gauss(r))*vol*.45),lo=Math.min(o,c)*(1-Math.abs(gauss(r))*vol*.45);return{time:nowS-(n-1-i)*step,open:o,high:hi,low:lo,close:c,value:(.4+r()*1.2)*(1+Math.abs(c/o-1)*40)}});
 }
 
+const SCANNER=[
+ {s:"BTC",n:"Bitcoin",t:"crypto",mine:true,tags:["breakout_20d"],px:98420,rsi:63.2},
+ {s:"TSLA",n:"Tesla",t:"stock",mine:true,tags:["oversold"],px:352.8,rsi:27.9},
+ {s:"PLTR",n:"Palantir",t:"stock",mine:false,tags:["bull_flag"],px:84.1,rsi:58.4},
+ {s:"AMD",n:"AMD",t:"stock",mine:false,tags:["reclaim_ma20"],px:162.3,rsi:51.0},
+ {s:"DOGE",n:"Dogecoin",t:"crypto",mine:false,tags:["oversold_bounce"],px:0.18,rsi:31.5}];
+const ATR={};ASSETS.forEach(a=>{ATR[a.s]={d:a.p*a.v,h:a.p*a.v/4}});
 window.DEMO={
+  scanner:SCANNER,atr:ATR,
   mode:"demo",
   assets:ASSETS,proba:PROBA,factors:FACTORS,news:NEWS,alerts:ALERTS,insiders:INSIDERS,calendar:CALENDAR,sources:SOURCES,
   sentiment:58,status:{demo:true},

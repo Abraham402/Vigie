@@ -1,4 +1,4 @@
-window.VIGIE_VERSION = "11 · graphique des positions";
+window.VIGIE_VERSION = "12 · day trader";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -956,3 +956,81 @@ on("ready", () => {
   renderPosChart();
 });
 on("view", v => { if (v === "pf" && posChart) requestAnimationFrame(() => posChart.timeScale().scrollToRealTime()) });
+
+
+/* =====================================================================
+   OUTILS « DAY TRADER » (inspirés de github.com/Jakeschincariol/day-trader-skill, MIT)
+   ===================================================================== */
+const SETUP_FR = {
+  breakout_20d: ["Cassure 20 jours", "La clôture dépasse toutes celles des 20 séances précédentes : les acheteurs prennent le dessus."],
+  bull_flag: ["Drapeau haussier", "Forte hausse puis 5 séances de pause serrée : souvent une respiration avant de repartir."],
+  reclaim_ma20: ["Retour sur la moyenne 20 j", "Le prix repasse au-dessus de sa moyenne des 20 derniers jours : la tendance courte s'améliore."],
+  oversold: ["Survendu", "Forte baisse en peu de temps (RSI < 30) : un rebond est possible, mais la baisse peut continuer."],
+  oversold_bounce: ["Rebond après survente", "Le RSI était sous 30 et le prix remonte : premier signe de rebond."]
+};
+function renderScanner() {
+  const el = $("#scanner"); if (!el) return;
+  const hits = D.scanner || [];
+  if (!hits.length) { el.innerHTML = `<div class="empty">Aucune figure technique notable sur les dernières séances.</div>`; return }
+  el.innerHTML = hits.slice(0, 12).map(h => `<button class="scan-item" data-scan="${esc(h.s)}"><span><b>${esc(h.s)}</b> <span class="muted">${esc(h.n)}</span>${h.mine ? ' <span class="chip ai">suivi</span>' : ""}<span class="scan-tags">${h.tags.map(t => `<span class="chip ${t.startsWith("oversold") ? "flat" : "up"}">${SETUP_FR[t] ? SETUP_FR[t][0] : t}</span>`).join("")}</span></span><span class="num muted" style="text-align:right">${fp(h.px)} $${h.rsi != null ? `<br><small>RSI ${nf(0).format(h.rsi)}</small>` : ""}</span><span class="why">${SETUP_FR[h.tags[0]] ? SETUP_FR[h.tags[0]][1] : ""}</span></button>`).join("");
+  $$("[data-scan]").forEach(b => b.onclick = () => { const s = b.dataset.scan; if (BY[s]) { selectAsset(s); go("chart") } else toast(`${s} n'est pas dans votre watchlist : le scanner le signale à titre d'exemple`) });
+}
+on("ready", renderScanner);
+window.addEventListener("vigie:data", renderScanner);
+
+/* Stop conseillé selon la volatilité (méthode ATR de trader-exit) */
+function atrStop(s, k = 1.5) { const a = (D.atr || {})[s], px = BY[s] && BY[s].price; if (!a || !a.d || !px) return null; const stop = px - k * a.d; return stop > 0 ? { stop, pct: (stop / px - 1) * 100, atr: a.d } : null }
+
+/* Time Machine : 4 000 scénarios rejoués à partir des bougies horaires passées de l'actif */
+const tmBars = {};
+async function tmOdds(s, entry, sl, tp) {
+  const a = BY[s]; if (!a || !(sl > 0) || !(tp > 0) || sl >= entry || tp <= entry) return null;
+  if (!tmBars[s]) { try { tmBars[s] = cleanBars(await D.getBars(a, 3600)) } catch (e) { return null } }
+  const b = tmBars[s]; if (b.length < 100) return null;
+  const R = []; for (let i = 1; i < b.length; i++) { const pc = b[i - 1].close; if (pc > 0) R.push([b[i].high / pc, b[i].low / pc, b[i].close / pc]) }
+  const H = a.t === "crypto" ? 168 : 35, N = 4000; let T = 0, S = 0, end = [];
+  let seed = 19; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let n = 0; n < N; n++) {
+    let px = entry, done = 0;
+    for (let k = 0; k < H; k++) {
+      const r = R[Math.floor(rnd() * R.length)], lo = px * r[1], hi = px * r[0];
+      if (lo <= sl) { S++; done = 1; break }   // stop et objectif dans la même bougie : on compte le stop (prudent)
+      if (hi >= tp) { T++; done = 1; break }
+      px *= r[2];
+    }
+    if (!done) end.push(px);
+  }
+  end.sort((x, y) => x - y);
+  return { pT: T / N * 100, pS: S / N * 100, pN: (N - T - S) / N * 100, N, days: 7, med: end.length ? end[end.length >> 1] : null, bars: R.length };
+}
+function oddsHTML(o, s) {
+  if (!o) return "";
+  const verdict = o.pT > o.pS * 1.3 ? "plutôt favorable" : o.pS > o.pT * 1.3 ? "plutôt défavorable" : "proche d'un pile ou face";
+  return `<div class="muted" style="font-size:12px;margin-top:10px"><b style="color:var(--text)">Time Machine</b> · ${nf(0).format(o.N)} scénarios rejoués avec les ${nf(0).format(o.bars)} dernières heures de ${esc(s)}, sur ${o.days} jours :</div>
+  <div class="oddsbar"><span style="width:${o.pT}%;background:var(--up)"></span><span style="width:${o.pN}%;background:var(--line-2)"></span><span style="width:${o.pS}%;background:var(--down)"></span></div>
+  <div class="odds num"><div><b class="up">${nf(0).format(o.pT)} %</b><small>objectif d'abord</small></div><div><b>${nf(0).format(o.pN)} %</b><small>ni l'un ni l'autre</small></div><div><b class="down">${nf(0).format(o.pS)} %</b><small>stop d'abord</small></div></div>
+  <div class="muted" style="font-size:11px;margin-top:6px">Verdict : ${verdict}. C'est une simulation fondée sur le passé récent, pas une prédiction.</div>`;
+}
+/* branchement dans la fenêtre « Protéger » et dans le graphique des positions */
+const _openProtect = openProtect;
+openProtect = function (s) {
+  _openProtect(s);
+  const box = $("#pInfo"); if (!box) return;
+  const st = atrStop(s);
+  if (st) { const btn = document.createElement("div"); btn.className = "quick"; btn.style.marginTop = "6px"; btn.innerHTML = `<button type="button" id="pAtr" style="flex:1">Stop conseillé : ${fp(st.stop)} $ (${fpct(st.pct)}) · 1,5 × ATR</button>`; $("#pSL").closest(".fld").after(btn); $("#pAtr").onclick = () => { $("#pSL").value = +st.stop.toFixed(dec(BY[s].price)); $("#pSL").oninput() } }
+  const odds = document.createElement("div"); odds.id = "pOdds"; box.after(odds);
+  let t = null; const upd = () => { clearTimeout(t); t = setTimeout(async () => { const o = await tmOdds(s, BY[s].price, +$("#pSL").value, +$("#pTP").value); const el = $("#pOdds"); if (el) el.innerHTML = o ? oddsHTML(o, s) : `<div class="muted" style="font-size:12px;margin-top:8px">Indiquez un stop-loss et un objectif : la Time Machine calculera vos chances d'atteindre l'objectif avant le stop.</div>` }, 300) };
+  ["#pSL", "#pTP"].forEach(id => { const el = $(id), prev = el.oninput; el.oninput = () => { prev && prev(); upd() } });
+  $$("[data-psl],[data-ptp]").forEach(b => { const prev = b.onclick; b.onclick = () => { prev && prev(); upd() } });
+  upd();
+};
+const _posDecorate = posDecorate;
+let posOddsKey = "", posOddsHtml = "";
+posDecorate = function () {
+  _posDecorate();
+  const s = posSel, p = pf.pos[s]; if (!p || !p.sl || !p.tp) return;
+  const key = `${s}:${p.sl}:${p.tp}`;
+  if (key === posOddsKey) { $("#posInfo").insertAdjacentHTML("beforeend", posOddsHtml); return }
+  posOddsKey = key; posOddsHtml = "";
+  tmOdds(s, BY[s].price, p.sl, p.tp).then(o => { if (o && posSel === s) { posOddsHtml = `<br>🎲 Time Machine : <b class="up">${nf(0).format(o.pT)} %</b> objectif d'abord · <b class="down">${nf(0).format(o.pS)} %</b> stop d'abord (7 j)`; $("#posInfo").insertAdjacentHTML("beforeend", posOddsHtml) } });
+};

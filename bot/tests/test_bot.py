@@ -176,3 +176,29 @@ def test_protections_trigger_once(monkeypatch):
     assert [e["s"] for e in ev] == ["AAPL"] and ev[0]["kind"] == "sl" and ev[0]["px"] == 95.0
     assert len(sent) == 1 and "Stop-loss atteint" in sent[0]
     assert portfolio.check_protections(state, snap, {"AAPL": md}) == []  # pas de doublon
+
+
+def test_scanner_rules_match_skill():
+    from vigie.daytrader import find_setups, rsi_wilder
+    flat = [100.0] * 29
+    tags, _ = find_setups(flat + [110.0])
+    assert "breakout_20d" in tags
+    run = [100 + i * 1.5 for i in range(25)] + [137.0, 136.5, 137.2, 136.8, 137.1]
+    tags, num = find_setups(run)
+    assert "bull_flag" in tags and num["range5_pct"] < 5
+    down = [100 * (0.97 ** i) for i in range(30)]
+    tags, num = find_setups(down)
+    assert "oversold" in tags and num["rsi"] < 30
+    tags, _ = find_setups(down + [down[-1] * 1.02])
+    assert "oversold_bounce" in tags
+    assert rsi_wilder([1.0, 2.0]) is None
+
+
+def test_atr_and_congress_parser():
+    from vigie.daytrader import atr
+    df = synth(60)
+    a = atr(df)
+    assert a and a > 0
+    assert atr(df.head(5)) is None
+    from vigie import ptr_house
+    assert ptr_house.iso("8/21/2026") == "2026-08-21"

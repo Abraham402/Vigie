@@ -410,3 +410,13 @@ body.learn .qt{display:inline-block}
 .pos-tabs small{font-weight:600;font-size:11px}
 .pos-info{font-size:12px;color:var(--muted);margin-bottom:4px;line-height:1.5}
 .pos-info b{color:var(--text);font-weight:600}
+
+.scan-item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;width:100%;text-align:left;border-left:0;border-right:0;border-top:0;background:none}
+.scan-item:last-child{border-bottom:0}
+.scan-item .why{grid-column:1/-1;color:var(--muted);font-size:12px;line-height:1.45}
+.scan-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.odds{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.odds div{background:var(--bg);border-radius:9px;padding:8px;text-align:center}
+.odds b{display:block;font-size:18px}
+.odds small{color:var(--muted);font-size:11px}
+.oddsbar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:8px}
