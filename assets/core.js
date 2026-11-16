@@ -1,4 +1,4 @@
-window.VIGIE_VERSION = "9 · suivi Telegram lisible";
+window.VIGIE_VERSION = "10 · protections";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -497,7 +497,7 @@ function renderPf() {
   const rows = Object.entries(pf.pos).filter(([s]) => BY[s]);
   $("#positions").innerHTML = rows.length ? `<thead><tr><th>Actif</th><th class="r">Quantité</th><th class="r">Prix moyen</th><th class="r">Prix</th><th class="r">Valeur</th><th class="r">G/P</th><th>Protection</th><th>Avis du bot (24 h)</th></tr></thead><tbody>` + rows.map(([s, p]) => {
     const a = BY[s], val = p.q * a.price, g = val - p.cost, pr = probaOf(s); const ok = !pr ? "—" : pr.p >= 55 ? "Hausse probable : cohérent" : pr.p <= 45 ? "Baisse probable : à surveiller" : "Neutre";
-    return `<tr><td><b>${s}</b></td><td class="r num">${nf(a.price > 1000 ? 5 : 3).format(p.q)}</td><td class="r num">${fp(p.cost / p.q)}</td><td class="r num">${fp(a.price)}</td><td class="r num">${fusd(val)}</td><td class="r num ${cls(g)}">${g >= 0 ? "+" : ""}${fusd(g)}<br><small>${fpct(g / p.cost * 100)}</small></td><td class="num" style="font-size:11px">${p.sl ? `<span class="down">Stop ${fp(p.sl)}</span>` : '<span class="flat">Sans stop</span>'}${p.tp ? `<br><span class="up">Obj. ${fp(p.tp)}</span>` : ""}</td><td>${pr ? `<span class="chip ${pcls(pr.p)}">${pr.p} %</span> ` : ""}<span class="muted" style="font-size:11px">${ok}</span></td></tr>`
+    return `<tr><td><b>${s}</b></td><td class="r num">${nf(a.price > 1000 ? 5 : 3).format(p.q)}</td><td class="r num">${fp(p.cost / p.q)}</td><td class="r num">${fp(a.price)}</td><td class="r num">${fusd(val)}</td><td class="r num ${cls(g)}">${g >= 0 ? "+" : ""}${fusd(g)}<br><small>${fpct(g / p.cost * 100)}</small></td><td class="num" style="font-size:11px">${p.sl ? `<span class="down">Stop ${fp(p.sl)}</span>` : '<span class="flat">Sans stop</span>'}${p.tp ? `<br><span class="up">Obj. ${fp(p.tp)}</span>` : ""}<br><button class="prot-btn" data-prot="${s}">${p.sl || p.tp ? "Modifier" : "+ Protéger"}</button></td><td>${pr ? `<span class="chip ${pcls(pr.p)}">${pr.p} %</span> ` : ""}<span class="muted" style="font-size:11px">${ok}</span></td></tr>`
   }).join("") + "</tbody>" : `<tr><td><div class="empty">Aucune position. Passez un ordre virtuel pour commencer.</div></td></tr>`;
   $("#history").innerHTML = pf.hist.length ? `<thead><tr><th>Date</th><th>Opération</th><th>Actif</th><th class="r">Quantité</th><th class="r">Prix</th><th class="r">Montant</th><th class="r">Résultat</th></tr></thead><tbody>` + pf.hist.slice(0, 40).map(h => `<tr><td class="muted">${new Date(h.t).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td><td class="${h.side === "Achat" ? "up" : "down"}">${h.side}${h.auto ? " (auto)" : ""}</td><td><b>${h.s}</b></td><td class="r num">${nf(4).format(h.q)}</td><td class="r num">${fp(h.px)}</td><td class="r num">${fusd(h.amt)}</td><td class="r num ${h.pnl != null ? cls(h.pnl) : "muted"}">${h.pnl != null ? (h.pnl >= 0 ? "+" : "") + fusd(h.pnl) : "—"}</td></tr>`).join("") + "</tbody>" : `<tr><td><div class="empty">Aucune opération pour l'instant.</div></td></tr>`;
   $("#pfSince").textContent = "depuis le " + new Date(pf.eq[0].t).toLocaleDateString("fr-FR");
@@ -510,6 +510,41 @@ function renderPf() {
     const up = v >= pf.cap; pfS.applyOptions({ lineColor: up ? C.up : C.down, topColor: up ? "rgba(22,199,132,.25)" : "rgba(234,57,67,.25)", bottomColor: "rgba(0,0,0,0)" }); pfS.setData(data); pfChart.timeScale().fitContent();
   }
   renderRisk(); renderOrders(); renderJournal(); updateTradeInfo();
+  $$("[data-prot]").forEach(b => b.onclick = () => openProtect(b.dataset.prot));
+}
+/* Ajouter ou modifier le stop-loss / l'objectif d'une position déjà ouverte */
+function openProtect(s) {
+  const p = pf.pos[s], a = BY[s]; if (!p || !a) return;
+  const val = p.q * a.price, d = dec(a.price);
+  openModal(`<div class="lesson"><h2>Protéger ma position ${s}</h2>
+  <p class="kicker">Prix actuel ${fp(a.price)} $ · position ${fusd(val, 0)} · prix moyen d'achat ${fp(p.cost / p.q)} $</p>
+  <label class="fld">Stop-loss : vendre automatiquement si le prix descend à ($)<input class="input num" id="pSL" type="number" step="any" inputmode="decimal" value="${p.sl ? +p.sl.toFixed(d) : +(a.price * .95).toFixed(d)}"></label>
+  <div class="quick" style="margin-top:6px">${[3, 5, 8, 10].map(k => `<button type="button" data-psl="${k}">−${k} %</button>`).join("")}<button type="button" data-psl="0">Aucun</button></div>
+  <label class="fld">Objectif : vendre automatiquement si le prix monte à ($, facultatif)<input class="input num" id="pTP" type="number" step="any" inputmode="decimal" value="${p.tp ? +p.tp.toFixed(d) : ""}" placeholder="ex. ${+(a.price * 1.1).toFixed(d)}"></label>
+  <div class="quick" style="margin-top:6px">${[5, 10, 20].map(k => `<button type="button" data-ptp="${k}">+${k} %</button>`).join("")}<button type="button" data-ptp="0">Aucun</button></div>
+  <div class="sizer" id="pInfo" style="margin-top:12px"></div>
+  <div class="btn-row"><button class="btn ai-b" id="pSave">Enregistrer la protection</button></div>
+  <p class="kicker" style="margin-top:10px">Le bot surveille aussi vos protections toutes les 15 min, même application fermée : il vous prévient sur Telegram et la vente est enregistrée au prix de déclenchement à la prochaine ouverture.</p></div>`);
+  const info = () => {
+    const sl = +$("#pSL").value, tp = +$("#pTP").value; let h = "";
+    if (sl > 0) h += sl >= a.price ? `<b class="down">Le stop-loss doit être sous le prix actuel.</b>` : `Si le stop-loss se déclenche : perte d'environ <b class="down">${fusd((sl - a.price) * p.q, 0)}</b> par rapport à maintenant (${fpct((sl / a.price - 1) * 100)}), soit ${nf(1).format(Math.abs((sl - a.price) * p.q) / pfValue() * 100)} % de votre capital.`;
+    if (tp > 0) h += (h ? "<br>" : "") + (tp <= a.price ? `<b class="down">L'objectif doit être au-dessus du prix actuel.</b>` : `À l'objectif : gain d'environ <b class="up">+${fusd((tp - a.price) * p.q, 0)}</b>.`);
+    if (sl > 0 && tp > 0 && sl < a.price && tp > a.price) { const rr = (tp - a.price) / (a.price - sl); h += `<br>Ratio risque/rendement <b class="${rr >= 2 ? "up" : "flat"}">1:${nf(1).format(rr)}</b>${rr >= 2 ? " ✓" : " · visez au moins 1:2"}` }
+    $("#pInfo").innerHTML = h || "Choisissez un niveau de stop-loss : c'est la protection n°1 des pros.";
+  };
+  $$("[data-psl]").forEach(b => b.onclick = () => { const k = +b.dataset.psl; $("#pSL").value = k ? +(a.price * (1 - k / 100)).toFixed(d) : ""; info() });
+  $$("[data-ptp]").forEach(b => b.onclick = () => { const k = +b.dataset.ptp; $("#pTP").value = k ? +(a.price * (1 + k / 100)).toFixed(d) : ""; info() });
+  $("#pSL").oninput = info; $("#pTP").oninput = info; info();
+  $("#pSave").onclick = () => {
+    const sl = +$("#pSL").value || 0, tp = +$("#pTP").value || 0;
+    if (sl && sl >= a.price) return toast("Le stop-loss doit être sous le prix actuel");
+    if (tp && tp <= a.price) return toast("L'objectif doit être au-dessus du prix actuel");
+    if (sl) p.sl = sl; else delete p.sl;
+    if (tp) p.tp = tp; else delete p.tp;
+    savePf(); renderPf(); closeModal(); syncPfToBot();
+    toast(sl ? `Stop-loss ${s} placé à ${fp(sl)} $` : "Protection mise à jour");
+    if (sl) emit("mission", "m5");
+  };
 }
 function renderRisk() {
   const v = pfValue(), items = Object.entries(pf.pos).filter(([s]) => BY[s]).map(([s, p]) => [s, p.q * BY[s].price]).sort((a, b) => b[1] - a[1]);
@@ -806,7 +841,22 @@ async function syncPfToBot(now) {
   } catch (e) { console.warn("synchronisation Telegram", e); return false }
 }
 on("trade", () => { if (CFG.tgReport) syncPfToBot() });
-on("ready", () => { if (CFG.tgReport) syncPfToBot() });
+on("ready", () => { if (CFG.tgReport) syncPfToBot(); applyBotProtections() });
+/* Stop-loss / objectifs atteints pendant que l'application était fermée (constatés par le bot) */
+async function applyBotProtections() {
+  if (D.mode !== "live") return;
+  let st;
+  try { const owner = location.hostname.endsWith("github.io") ? location.hostname.split(".")[0] : "Abraham402", repo = location.pathname.split("/")[1] || "Vigie"; st = await (await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/data/state/state.json?t=${Date.now()}`)).json() } catch (e) { return }
+  const done = new Set(CFG.protDone || []); let n = 0;
+  (st.prot_events || []).forEach(ev => {
+    if (done.has(ev.id)) return;
+    const p = pf.pos[ev.s], lvl = p && (ev.kind === "sl" ? p.sl : p.tp);
+    if (p && lvl && Math.abs(lvl - ev.level) / ev.level < 1e-6) { execSell(ev.s, p.q * ev.px, ev.px, { setup: ev.kind === "sl" ? "Stop-loss automatique (bot)" : "Take-profit automatique (bot)", auto: true }); n++ }
+    done.add(ev.id);
+  });
+  CFG.protDone = [...done].slice(-200); saveCfg();
+  if (n) { toast(`${n} protection${n > 1 ? "s" : ""} déclenchée${n > 1 ? "s" : ""} pendant votre absence : vente${n > 1 ? "s" : ""} enregistrée${n > 1 ? "s" : ""}`); syncPfToBot() }
+}
 /* l'IA comprend les demandes de suivi : « envoie-moi un point toutes les heures sur Telegram » */
 aiHooks.push(q => {
   const t = q.toLowerCase();

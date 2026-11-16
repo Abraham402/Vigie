@@ -105,6 +105,48 @@ def build_report(snap: dict, prices: dict[str, float], proba: dict, last: dict |
     return txt, {"t": now_ms(), "total": total, "values": values}
 
 
+def check_protections(state: dict, snap: dict, mds: dict) -> list[dict]:
+    """Stop-loss / objectifs touchés depuis le dernier passage (plus bas / plus haut de la dernière bougie horaire)."""
+    sent = state.setdefault("prot_sent", [])
+    events = state.setdefault("prot_events", [])
+    new = []
+    for s, (q, cost, sl, tp) in snap.get("pos", {}).items():
+        md = mds.get(s)
+        if not md or not md.quote:
+            continue
+        px = float(md.quote["price"])
+        lo, hi = px, px
+        if md.kind == "crypto" and not md.h1.empty:
+            last = md.h1.iloc[-1]
+            lo, hi = min(px, float(last["low"])), max(px, float(last["high"]))
+        for kind, level, hit, fill in (("sl", sl, lo <= sl if sl else False, min(sl, px) if sl else 0),
+                                        ("tp", tp, hi >= tp if tp else False, max(tp, px) if tp else 0)):
+            if not level or not hit:
+                continue
+            eid = f"{s}:{kind}:{level}"
+            if eid in sent:
+                continue
+            ev = {"id": eid, "s": s, "kind": kind, "level": level, "px": round(float(fill if kind == "sl" else level), 8), "t": now_ms()}
+            events.append(ev)
+            sent.append(eid)
+            new.append(ev)
+            val = q * ev["px"]
+            res = val - cost
+            if kind == "sl":
+                msg = (f"🛑 <b>Stop-loss atteint · {s}</b>\nLe prix est descendu à {money(ev['px'], 2)} (votre stop : {money(level, 2)}).\n"
+                       f"Vente fictive de {money(val)} · résultat {money(res)}.\n"
+                       f"<i>Elle sera enregistrée dans votre portefeuille à la prochaine ouverture de Vigie.</i>\n"
+                       f"🎓 Le stop-loss a limité la perte comme prévu : c'est le métier qui rentre.")
+            else:
+                msg = (f"🎯 <b>Objectif atteint · {s}</b>\nLe prix a touché {money(level, 2)}.\n"
+                       f"Vente fictive de {money(val)} · résultat {money(res)}.\n"
+                       f"<i>Elle sera enregistrée dans votre portefeuille à la prochaine ouverture de Vigie.</i>")
+            telegram.send(msg)
+    state["prot_events"] = events[-50:]
+    state["prot_sent"] = sent[-200:]
+    return new
+
+
 def maybe_send(state: dict, mds: dict, proba: dict) -> None:
     if not telegram.configured():
         return
@@ -112,6 +154,10 @@ def maybe_send(state: dict, mds: dict, proba: dict) -> None:
     if snap is None:
         return
     state["pf_snap"] = snap
+    hit = {e["s"] for e in check_protections(state, snap, mds)}
+    if hit:  # positions déjà vendues par une protection : on ne les compte plus dans le point
+        snap = {**snap, "pos": {k: v for k, v in snap["pos"].items() if k not in hit},
+                "cash": snap.get("cash", 0) + sum(e["px"] * snap["pos"][e["s"]][0] for e in state["prot_events"][-len(hit):])}
     freq = int(snap.get("freq") or 0)
     if freq <= 0:
         return

@@ -1,6 +1,6 @@
 /* Vigie — service worker : réseau d'abord, cache en secours (hors ligne) */
-const CACHE = "vigie-v9";
-const CORE = ["./", "index.html", "assets/style.css?v=9", "assets/data-demo.js?v=9", "assets/live.js?v=9", "assets/core.js?v=9", "assets/learn.js?v=9", "assets/boot.js?v=9", "manifest.webmanifest", "icons/icon-192.png"];
+const CACHE = "vigie-v10";
+const CORE = ["./", "index.html", "assets/style.css?v=10", "assets/data-demo.js?v=10", "assets/live.js?v=10", "assets/core.js?v=10", "assets/learn.js?v=10", "assets/boot.js?v=10", "manifest.webmanifest", "icons/icon-192.png"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).catch(() => {})) });
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", e => {

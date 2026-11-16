@@ -161,3 +161,18 @@ def test_portfolio_hidden_link():
     data = base64.urlsafe_b64encode(json.dumps(snap).encode()).decode().rstrip("=")
     assert portfolio.parse_url(f"https://abraham402.github.io/Vigie/#s={data}") == snap
     assert portfolio.parse_url("https://example.com") is None
+
+
+def test_protections_trigger_once(monkeypatch):
+    from types import SimpleNamespace
+    from vigie import portfolio, telegram
+    sent = []
+    monkeypatch.setattr(telegram, "send", lambda txt, silent=False: sent.append(txt) or True)
+    df = synth(10)
+    md = SimpleNamespace(quote={"price": 95.0}, kind="stock", h1=df)
+    snap = {"pos": {"AAPL": [10, 1000, 96.0, 0], "MSFT": [1, 100, 0, 200.0]}}
+    state = {}
+    ev = portfolio.check_protections(state, snap, {"AAPL": md, "MSFT": SimpleNamespace(quote={"price": 150.0}, kind="stock", h1=df)})
+    assert [e["s"] for e in ev] == ["AAPL"] and ev[0]["kind"] == "sl" and ev[0]["px"] == 95.0
+    assert len(sent) == 1 and "Stop-loss atteint" in sent[0]
+    assert portfolio.check_protections(state, snap, {"AAPL": md}) == []  # pas de doublon
