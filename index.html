@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=10">
+<link rel="stylesheet" href="assets/style.css?v=11">
 <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -255,6 +255,17 @@
       <div class="card-h"><h2>Positions</h2></div>
       <div class="tbl-wrap"><table id="positions"></table></div>
     </div>
+    <div class="card" id="posChartCard">
+      <div class="card-h"><h2>Mes positions en graphique</h2>
+        <div class="segmented" role="group" aria-label="Unité de temps du graphique des positions">
+          <button aria-pressed="false" data-ptf="900">15 min</button><button aria-pressed="true" data-ptf="3600">1 h</button><button aria-pressed="false" data-ptf="14400">4 h</button><button aria-pressed="false" data-ptf="86400">1 J</button>
+        </div>
+      </div>
+      <div class="pos-tabs" id="posTabs"></div>
+      <div class="pos-info num" id="posInfo"></div>
+      <div id="poschart"></div>
+      <div class="legend"><span><i style="background:#5EB5F7"></i>votre prix moyen d'achat</span><span><i style="background:#EA3943"></i>stop-loss</span><span><i style="background:#16C784"></i>objectif</span><span>▲ ▼ vos achats et ventes</span></div>
+    </div>
     <div class="pf-grid2">
       <div class="card">
         <div class="card-h"><h2>Ordres et protections</h2></div>
@@ -322,10 +333,10 @@
 <div class="tour-tip" id="tourTip" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="assets/data-demo.js?v=10"></script>
-<script src="assets/live.js?v=10"></script>
-<script src="assets/core.js?v=10"></script>
-<script src="assets/learn.js?v=10"></script>
-<script src="assets/boot.js?v=10"></script>
+<script src="assets/data-demo.js?v=11"></script>
+<script src="assets/live.js?v=11"></script>
+<script src="assets/core.js?v=11"></script>
+<script src="assets/learn.js?v=11"></script>
+<script src="assets/boot.js?v=11"></script>
 </body>
 </html>

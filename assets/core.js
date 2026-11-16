@@ -1,4 +1,4 @@
-window.VIGIE_VERSION = "10 · protections";
+window.VIGIE_VERSION = "11 · graphique des positions";
 "use strict";
 /* =====================================================================
    Vigie — interface (commune au mode démo et au mode réel)
@@ -511,6 +511,7 @@ function renderPf() {
   }
   renderRisk(); renderOrders(); renderJournal(); updateTradeInfo();
   $$("[data-prot]").forEach(b => b.onclick = () => openProtect(b.dataset.prot));
+  renderPosChart();
 }
 /* Ajouter ou modifier le stop-loss / l'objectif d'une position déjà ouverte */
 function openProtect(s) {
@@ -874,3 +875,84 @@ aiHooks.push(q => {
   const lbl = f === 60 ? "toutes les heures" : f === 720 ? "matin et soir" : `toutes les ${f / 60} heures`;
   return `<p>C'est noté ✅ Je vous envoie un point sur votre portefeuille <b>${lbl}</b> dans votre discussion avec le bot Telegram : valeur totale, gain ou perte de chaque position depuis l'achat et depuis le dernier point, protections manquantes et avis du bot.</p><p class="muted">Le premier point arrive au prochain passage du bot (15 min maximum). La nuit (23 h – 7 h), les messages sont silencieux. Pour arrêter, dites-moi « arrête le suivi ».</p>`;
 });
+
+
+/* =====================================================================
+   PORTEFEUILLE : GRAPHIQUE EN BOUGIES DES POSITIONS DÉTENUES
+   ===================================================================== */
+let posSel = null, posTf = LS.get("vigie-ptf", 3600), posChart, posSeries, posVol, posMk, posLines = [], posBars = [], posKey = "", posUnsub = null;
+function posEffTf(a) { return D.mode === "live" && a.t === "stock" && posTf < 300 ? 300 : posTf }
+function renderPosChart() {
+  const card = $("#posChartCard"); if (!card) return;
+  const held = Object.keys(pf.pos).filter(s => BY[s]);
+  if (!held.length) { card.hidden = true; if (posUnsub) { posUnsub(); posUnsub = null } posKey = ""; return }
+  card.hidden = false;
+  if (!held.includes(posSel)) posSel = held.includes(current) ? current : held[0];
+  $("#posTabs").innerHTML = held.map(s => { const p = pf.pos[s], g = (p.q * BY[s].price / p.cost - 1) * 100; return `<button data-pos="${s}" aria-pressed="${s === posSel}">${s}<small class="${cls(g)}">${fpct(g)}</small></button>` }).join("");
+  $$("[data-pos]").forEach(b => b.onclick = () => { posSel = b.dataset.pos; renderPosChart() });
+  $$("[data-ptf]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.ptf === posTf));
+  loadPosChart();
+}
+function nearestBarTime(t) {
+  if (!posBars.length || t < posBars[0].time) return null;
+  let lo = 0, hi = posBars.length - 1;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (posBars[m].time <= t) lo = m; else hi = m - 1 }
+  return posBars[lo].time;
+}
+function posDecorate() {
+  if (!posSeries) return;
+  const s = posSel, p = pf.pos[s], a = BY[s]; if (!p || !a) return;
+  posLines.forEach(l => { try { posSeries.removePriceLine(l) } catch (e) { } }); posLines = [];
+  const pru = p.cost / p.q;
+  posLines.push(posSeries.createPriceLine({ price: pru, color: C.blue, lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: "Prix moyen" }));
+  if (p.sl) posLines.push(posSeries.createPriceLine({ price: p.sl, color: C.down, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: "Stop" }));
+  if (p.tp) posLines.push(posSeries.createPriceLine({ price: p.tp, color: C.up, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: "Objectif" }));
+  const mk = [];
+  pf.hist.filter(h => h.s === s).forEach(h => { const t = nearestBarTime(Math.floor(h.t / 1000)); if (t == null) return; mk.push(h.side === "Achat" ? { time: t, position: "belowBar", color: C.blue, shape: "arrowUp", text: "Achat" } : { time: t, position: "aboveBar", color: C.amber, shape: "arrowDown", text: "Vente" }) });
+  mk.sort((x, y) => x.time - y.time);
+  posMk.setMarkers(mk);
+  const val = p.q * a.price, g = val - p.cost;
+  $("#posInfo").innerHTML = `<b>${esc(a.n)}</b> à <b>${fp(a.price)} $</b>${a.delayed ? " (différé)" : ""} · votre prix moyen <b>${fp(pru)} $</b> · <span class="${cls(g)}">${g >= 0 ? "+" : ""}${fusd(g)} (${fpct(g / p.cost * 100)})</span>` +
+    (p.sl ? ` · stop à ${fp(p.sl)} $ (${fpct((p.sl / a.price - 1) * 100)})` : ` · <span class="flat">sans stop-loss</span>`) + (p.tp ? ` · objectif ${fp(p.tp)} $ (${fpct((p.tp / a.price - 1) * 100)})` : "");
+}
+async function loadPosChart() {
+  if (!LC || !posSel) return;
+  const a = BY[posSel], t = posEffTf(a), key = posSel + ":" + t;
+  if (!posChart) {
+    posChart = LC.createChart($("#poschart"), { ...baseChartOpts(), timeScale: { borderColor: C.line, timeVisible: true, rightOffset: 4 } });
+    posSeries = posChart.addSeries(LC.CandlestickSeries, CS);
+    posVol = posChart.addSeries(LC.HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "", lastValueVisible: false, priceLineVisible: false });
+    posVol.priceScale().applyOptions({ scaleMargins: { top: .85, bottom: 0 } });
+    posMk = LC.createSeriesMarkers(posSeries, []);
+  }
+  if (key === posKey) { posDecorate(); return }
+  posKey = key;
+  let data = [];
+  try { data = cleanBars(await D.getBars(a, t)) } catch (e) { }
+  if (posKey !== key) return;
+  posBars = data;
+  posSeries.setData(data.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
+  posVol.setData(data.map(volPoint));
+  posChart.applyOptions({ timeScale: { timeVisible: t < 86400, secondsVisible: false } });
+  posChart.timeScale().setVisibleLogicalRange({ from: data.length - (innerWidth < 600 ? 60 : 110), to: data.length + 3 });
+  posDecorate();
+  if (posUnsub) { posUnsub(); posUnsub = null }
+  if (D.klineStream && a.t === "crypto") posUnsub = D.klineStream(a.s, t, k => {
+    if (!posBars.length || k.time < posBars[posBars.length - 1].time) return;
+    if (k.time > posBars[posBars.length - 1].time) posBars.push(k); else Object.assign(posBars[posBars.length - 1], k);
+    posSeries.update({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close }); posVol.update(volPoint(k));
+  });
+}
+/* sans flux de bougies (démo, actions) : la dernière bougie suit le prix */
+setInterval(() => {
+  if (!posSeries || !posBars.length || !posSel || !BY[posSel] || posUnsub) return;
+  const b = posBars[posBars.length - 1], px = BY[posSel].price; if (!px) return;
+  b.close = px; b.high = Math.max(b.high, px); b.low = Math.min(b.low, px);
+  posSeries.update({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close });
+}, 1000);
+setInterval(() => { if (posSeries && pf && posSel && pf.pos[posSel]) { posDecorate(); const tabs = $$("[data-pos]"); tabs.forEach(b => { const p = pf.pos[b.dataset.pos], a = BY[b.dataset.pos]; if (p && a) { const g = (p.q * a.price / p.cost - 1) * 100, sm = b.querySelector("small"); sm.textContent = fpct(g); sm.className = cls(g) } }) } }, 5000);
+on("ready", () => {
+  $$("[data-ptf]").forEach(b => b.onclick = () => { posTf = +b.dataset.ptf; LS.set("vigie-ptf", posTf); renderPosChart() });
+  renderPosChart();
+});
+on("view", v => { if (v === "pf" && posChart) requestAnimationFrame(() => posChart.timeScale().scrollToRealTime()) });
